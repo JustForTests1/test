@@ -1,0 +1,848 @@
+ /*********************************************************************/
+ /* MODULE NAME  : QCHCIDM                                            */
+ /* APPLICATION  : CHIS                (C) COPYRIGHT IBM CORP. 1991   */
+ /*-------------------------------------------------------------------*/
+ /* FUNCTION     : Dynamically switch CollectionId necessary with     */
+ /*                UNICODE database.                                  */
+ /* AUTHOR       : G. Haberler                                        */
+ /* DATE         : 12-07-2005                                         */
+ /* HISTORY      : Switch CollectionId to activate different          */
+ /*                Codepage                                           */
+ /*                                                                   */
+ /* Parameters:                                                       */
+ /*   1. Ptr           - (I) SPA                                      */
+ /*********************************************************************/
+
+ QCHCIDM: PROC ($$USPAPTR,
+                 tss,tse) REORDER;
+   %INCLUDE QCH##PAD;
+   %INCLUDE QCH##EPS;
+   %INCLUDE QCHZTRC1;
+   %INCLUDE QCHDEPS;
+   %INCLUDE QCHSHYSP;
+   %INCLUDE QTTSHYS;
+   %INCLUDE QCHSHYSX;
+
+   #MODIDENT(QCHCIDM);
+
+   DFT  RANGE(*) STATIC;
+
+ /*------------------------------------------------------------------*/
+ /* Declarations                                                     */
+ /*------------------------------------------------------------------*/
+
+   dcl  SYSPRINT FILE PRINT EXT;
+
+   dcl (ONSOURCE,
+        ONCOUNT,
+        DATAFIELD,
+        DATETIME,
+        FIXED,
+        UNSPEC,
+        BINARYVALUE,
+        STORAGE,
+        ONCHAR,
+        VERIFY,
+        INDEX,
+        ONCODE,
+        ONLOC) Builtin;
+
+ /*------------------------------------------------------------------*/
+ /* Parameter declarations                                           */
+ /*------------------------------------------------------------------*/
+
+   dcl  $$USPAPTR    Ptr;
+
+   dcl tss(*) fixed bin(31); /* Temporary for timestamp measurements */
+   dcl tse(*) fixed bin(31); /* Temporary for timestamp measurements */
+
+   dcl TraceLvl    Fixed Bin(31);
+   dcl Function    Char     ( 3);
+   dcl Param1      Char     ( 8) varying;
+   dcl Country     Char     ( 3);
+
+   dcl  1 QCHUSPA  based($$USPAPTR),      %INCLUDE QCHSPAS; ;
+   DCL  1 SPP      BASED(QCHUSPA.PTRP1),  %INCLUDE QCHPTRS; ;
+   DCL  1 CM2      BASED(SPP.CM2P1),      %INCLUDE QCHCM2S; ;
+
+   %INCLUDE QCHDRVS;
+   %INCLUDE QCHSHYSS;
+   %INCLUDE QCHCNFM;
+   %INCLUDE QCHCRCM;
+
+   dcl  retbit                 bit(1) init('0'B);
+
+ /*------------------------------------------------------------------*/
+ /* Country                                                          */
+ /* Codepage                                                         */
+ /* Collectionid                                                     */
+ /* EncodingType    array                                            */
+ /*------------------------------------------------------------------*/
+
+   dcl 1 CCCE_array based,
+         3 countr                 BIN FIXED(15),
+         3 rows(Cr refer(countr)),
+           5 Country              CHAR(3),
+           5 CodePage             CHAR(4),
+           5 CollectionId         CHAR(8),
+           5 EncodingType         CHAR(1),
+           5 HighValueSBchr       CHAR(1),
+           5 HighValueMBchr       CHAR(4);
+
+   dcl  p_CCCE_array     ptr       init(NULL);/* CCCE_array anchor    */
+
+   dcl  cr           BIN FIXED(15) INIT(0)   ;/* count array items    */
+   dcl  rc           BIN FIXED(31) INIT(0)   ;/* function return code */
+   dcl  i            BIN FIXED(15) INIT(0)   ;/* help counter         */
+
+
+   dcl  1 CTY,
+        %INCLUDE QCHCTYS;;
+
+   EXEC SQL INCLUDE SQLCA;
+   %        INCLUDE QCHCTY1S;
+
+   on error snap;
+   %deact put;
+ /*------------------------------------------------------------------*/
+ /* Program logic begins                                             */
+ /*------------------------------------------------------------------*/
+
+ /*------------------------------------------------------------------*/
+ /* Routine to get the Encoding Scheme for a specific country        */
+ /*                                                                  */
+ /*------------------------------------------------------------------*/
+ QCHESCM:  Entry(TraceLvl
+                ,Country)
+           returns(char);
+ /*------------------------------------------------------------------*/
+ /*   Return Values                                                   */
+ /*                 ' '               -  No valid EncodingTyp could   */
+ /*                                      be assinged.                 */
+ /*                 'S'               -  SBCS EBCDIC                  */
+ /*                 'M'               -  MBCS EBCDIC                  */
+ /*------------------------------------------------------------------*/
+
+   dcl ret_encodingtype    char(1);
+
+   ret_encodingtype = ' ';
+   putskipa(11,('in ESC -> Initialize array'));
+   rc = Allocate_CCCE;
+
+   if rc ^= 0 then do;
+     putskipa(0,('Cannot allocate CCCE_array / rc='!!rc));
+     return(ret_encodingtype);
+   end;
+
+   ret_encodingtype = ' ';
+   putskipa(9,('in ESC -> GetEncodingType for cty:'!!Country));
+
+   do i = 1 to p_CCCE_array->CCCE_array.countr
+            until(p_CCCE_array->CCCE_array.rows(i).Country = Country);
+   end;
+   putskipa(9,('i                                :'!!i));
+
+   if i <= p_CCCE_array->CCCE_array.countr then
+     ret_encodingtype = p_CCCE_array->CCCE_array.rows(i).EncodingType;
+
+   putskipa(9,
+           ('ret_encodingtype                 :'!!ret_encodingtype));
+
+   putskipa(11,('SCI -> free               '));
+   free p_CCCE_array->CCCE_array;
+   p_CCCE_array = NULL;
+
+ return(ret_encodingtype);
+
+ /*------------------------------------------------------------------*/
+ /* Starting routine for caching CFG data for CF file users          */
+ /*                                                                  */
+ /*------------------------------------------------------------------*/
+ QCHICIM:  Entry(TraceLvl
+                ,$$USPAPTR)
+
+           returns(fixed bin(31));
+ /*------------------------------------------------------------------*/
+ /*   Return Values                                                  */
+ /*       0 ...   COLLID_ARRAY_CREATED   CollectionId array          */
+ /*                                      successfully created        */
+ /*       2 ...   COLLID_ARRAY_EXISTS    CollectionId array          */
+ /*                                      already exists              */
+ /*       4 ...   COLLID_SQL_ERROR_OPEN  Error in OPEN cursor for    */
+ /*                                      CPG records in CTY table    */
+ /*       6 ...   COLLID_SQL_ERROR_FETCH Error in FETCH cursor for   */
+ /*                                      CPG records in CTY table    */
+ /*      12 ...   COLLID_NO_CPG_DATA     No CPG data in CTY table    */
+ /*------------------------------------------------------------------*/
+
+   putskipa(11,('in ICI -> Initialize array'));
+   rc = Allocate_CCCE;
+
+ return(rc);
+
+ /*------------------------------------------------------------------*/
+ /* Routine to switch CollectionId based on the parameter input      */
+ /*                                                                  */
+ /*------------------------------------------------------------------*/
+ QCHSCIM:  Entry(TraceLvl
+                ,$$USPAPTR
+                ,Function
+                ,Param1
+                )
+           returns(fixed bin(31));
+
+ /*------------------------------------------------------------------*/
+ /*   Return Values                                                  */
+ /*       0 ...   COLLID_SWITCH_OK       CollectionId switch OK.     */
+ /*       0 ...   COLLID_ARRAY_CREATED   CollectionId array          */
+ /*                                      successfully created        */
+ /*       2 ...   COLLID_ARRAY_EXISTS    CollectionId array          */
+ /*                                      already exists              */
+ /*       4 ...   COLLID_SQL_ERROR_OPEN  Error in OPEN cursor for    */
+ /*                                      CPG records in CTY table    */
+ /*       6 ...   COLLID_SQL_ERROR_FETCH Error in FETCH cursor for   */
+ /*                                      CPG records in CTY table    */
+ /*      12 ...   COLLID_NO_CPG_DATA     No CPG data in CTY table    */
+ /*      16 ...   COLLID_SWITCH_ERROR    No CollectionID switch done */
+ /*                                      because of SQL Error.       */
+ /*      17 ...   COLLID_FUNCTION_ERROR  SCI called with wrong       */
+ /*                                      function parameter          */
+ /*      24 ...   COLLID_RECORD_NOT_FOUND Search with CTY or CPG     */
+ /*                                      in CollectionId array was   */
+ /*                                      not successful. Not found.  */
+ /*------------------------------------------------------------------*/
+
+   rc = COLLID_SWITCH_OK;
+
+   putskipa(11,('------------------------------------------------'));
+   putskipa(11,('in SCI -> SwitchCodePage'));
+   putskipa(11,('Function    :'!!Function));
+   putskipa(11,('Parameter   :'!!Param1!!' L:'!!length(param1)));
+   putskipa(11,('p_CCCE_array:'!!int2hex(BINARYVALUE(p_CCCE_array))));
+   putskipa(11,('------------------------------------------------'));
+
+   if p_CCCE_array = NULL then do;
+                                 /* after DCT is called after display */
+                                 /* of a panel Tables SPA structure is*/
+                                 /* initialized and all data is lost  */
+                                 /* because of SDTM panel behaviour   */
+
+     putskipa(11,('SCI -> Allocate CCCE_array'));
+
+     rc = Allocate_CCCE;
+
+   end;
+
+   if rc ^= 0 then
+     return(rc);
+
+   Select ( toupper(Function) );
+
+     When ('CTY','CPG') do;
+       rc = FindCollectionId(toupper(Function),Param1);
+     end;
+
+     When ('CID') do;
+       rc = COLLID_SWITCH_OK;
+       if ^SwitchCodePage(Param1,' ') then
+         rc = COLLID_SWITCH_ERROR;
+     end;
+
+     Otherwise do;
+       putskipa(0,('Wrong Function for SCI !'));
+       rc = COLLID_FUNCTION_ERROR;
+     end;
+
+   end;
+
+   putskipa(11,('SCI -> free               '));
+   free p_CCCE_array->CCCE_array;
+   p_CCCE_array = NULL;
+
+
+ return(rc);
+
+ /*------------------------------------------------------------------*/
+ /* This functions is preparing the allocation of the CCCE array     */
+ /*------------------------------------------------------------------*/
+ Allocate_CCCE     : proc
+                     returns(fixed bin(15));
+ /*------------------------------------------------------------------*/
+
+   if count_CPG_rows() then
+     rc = alloc_CCCE_array();
+   else do;
+     rc = 12;
+     p_CCCE_array = NULL;
+   end;
+
+   return(rc);
+ end Allocate_CCCE;
+
+ /*------------------------------------------------------------------*/
+ /* This functions seaches the array based on the input to find      */
+ /* the approbriate CollectionId                                     */
+ /*------------------------------------------------------------------*/
+ FindCollectionId  : proc (Func
+                          ,Para )
+                     returns(fixed bin(15));
+ /*------------------------------------------------------------------*/
+
+   dcl Func         Char(3);
+   dcl Para         Char(4) var;
+   dcl CoId         Char(8) var;
+   dcl found        bit (1);
+
+   found = FALSE;
+   CoId  = ' ';
+
+   putskipa(5,('Cnt CCCE_array:'!!p_CCCE_array->CCCE_array.countr));
+   putskipa(11,('Func             :'!!Func                           ));
+   putskipa(11,('Para             :'!!Para                           ));
+
+   if p_CCCE_array->CCCE_array.countr = 0 then do;
+     putskipa(11,('allocate array FindCollectionId'));
+     rc = allocate_ccce();
+   end;
+
+   if rc ^= 0 then
+     return(rc);
+
+   do i = 1 to p_CCCE_array->CCCE_array.countr
+            until(found);
+
+   putskipa(11,('Index CCCE_array :'!!I));
+
+     select ( Func );
+
+       when ( 'CTY' ) do;
+         if p_CCCE_array->CCCE_array.rows(i).Country = Para then do;
+           found = TRUE;
+           putskipa(5,('Found CollectionId :' !!
+             p_CCCE_array->CCCE_array.rows(i).CollectionId));
+
+           CoId = p_CCCE_array->CCCE_array.rows(i).CollectionId;
+
+         end;
+       end;
+
+       when ( 'CPG' ) do;
+
+         putskipa(9,('strip Codepage     :' !!
+            strip(p_CCCE_array->CCCE_array.rows(i).CodePage,' ')));
+
+         if strip(p_CCCE_array->CCCE_array.rows(i).CodePage,' ') = Para
+         then do;
+           found = TRUE;
+           putskipa(5,('Found CollectionId :' !!
+             p_CCCE_array->CCCE_array.rows(i).CollectionId));
+
+           CoId = p_CCCE_array->CCCE_array.rows(i).CollectionId;
+
+         end;
+       end;
+
+       otherwise do;
+         putskipa(0,('Wrong Func ! No CollectionId switched'));
+         rc = COLLID_FUNCTION_ERROR;
+       end;
+
+     end;
+
+   end;
+
+   if found = FALSE then
+     return(COLLID_RECORD_NOT_FOUND);
+
+   rc = 0;
+   if CoId ^= ' '
+    & ^SwitchCodePage(p_CCCE_array->CCCE_array.rows(i).CollectionId
+                     ,p_CCCE_array->CCCE_array.rows(i).Codepage)
+   then do;
+     rc = COLLID_SWITCH_ERROR;
+   end;
+   else do;
+     /* Assign correct high values when successfull switch of CollId */
+     Cm2.HiValSBchar =
+       p_CCCE_array->CCCE_array.rows(i).HighValueSBchr;
+     Cm2.HiValMBchar =
+       p_CCCE_array->CCCE_array.rows(i).HighValueMBchr;
+     Cm2.CollectionId =
+       p_CCCE_array->CCCE_array.rows(i).CollectionId;
+     Cm2.CodePage     =
+       p_CCCE_array->CCCE_array.rows(i).CodePage;
+   end;
+
+   return(rc);
+
+ end FindCollectionId;
+
+ /*------------------------------------------------------------------*/
+ /* This functions assigns the CM2 structure single byte high value  */
+ /* substitution character  from the CTY CPG record hex value        */
+ /* This is necessary to have the right value to replace the X'FF'   */
+ /* with this value for "<" or Between seperators in SQL             */
+ /* CTY CPG record SEQKEY1 holds the hex value "59" which is the     */
+ /* single byte '~' and represents the highes code point in this     */
+ /* EBCDIC code page that results in a single byte Unicode character */
+ /* after conversion done by DB2 when access via SQL                 */
+ /*                                                                  */
+ /* This functions assigns the CM2 structure multi  byte unicode     */
+ /* high value substitution character from the CTY CTP record hex    */
+ /* value.                                                           */
+ /*------------------------------------------------------------------*/
+ AssignHighValues: proc;
+ /*------------------------------------------------------------------*/
+
+   Dcl HiValX        char(1)       auto;
+   Dcl HiValMbc      char(8) var   auto;
+   Dcl HiValMbcLen   bin fixed(15) init(0) auto;
+   Dcl ii            bin fixed(15) init(0) auto;
+   Dcl StepIteration bin fixed(15) init(2) auto;
+
+   HiValMbc    = ToUpper(substr(CTY.SEQKEY3,1,8));
+   HiValMbc    = Strip(HiValMbc,' ');
+   HiValMbcLen = length(HiValMbc) / 2;
+
+   Cm2.HiValSBchar = Hex2Byte(ToUpper(Substr(Cty.Seqkey2,1,2)));
+
+   Cm2.HiValMBchar = '';
+   do ii = 1 to HiValMbcLen;
+     HiValX =
+          Hex2Byte(
+          substr(HiValMbc,ii*StepIteration-1,StepIteration));
+      Cm2.HiValMBchar = Cm2.HiValMBchar !! HiValX;
+   end;
+
+ end AssignHighValues;
+
+ /*------------------------------------------------------------------*/
+ /* This functions provides the CPG rows from the CTY table          */
+ /*------------------------------------------------------------------*/
+ SwitchCodePage: proc (Switch_CollId
+                      ,Switch_Codepage)
+                     returns(bit);
+ /*------------------------------------------------------------------*/
+
+   dcl Switch_CollId       Char(8) var;
+   dcl Switch_Codepage     Char(4)    ;
+   putskipa(9,('SwitchCodePage to :'!!Switch_Codepage));
+
+   sqlcode = 0;
+
+   EXEC SQL
+     set current packageset = :Switch_CollId;
+
+   if sqlcode ^= 0 then do;
+     putskipa(0,('packageset sqlcode:'!!sqlcode));
+     call sql_dsntiar;
+   end;
+   else
+     putskipa(5,('packageset successfull'));
+
+
+   if sqlcode = 0
+    & Switch_Codepage ^= ' ' then
+     EXEC SQL
+       set current application encoding scheme = :Switch_Codepage;
+
+   if sqlcode = 0 then
+     return(TRUE);
+
+   putskipa(0,('encoding scheme sqlcode:'!!sqlcode));
+   putskipa(0,('codepage to be switched:'!!Switch_Codepage));
+   call sql_dsntiar;
+
+   return(FALSE);
+
+ end SwitchCodePage;
+
+ /*------------------------------------------------------------------*/
+ /* This functions provides the CPG rows from the CTY table          */
+ /*------------------------------------------------------------------*/
+ open_CPG_cursor: proc returns(bit);
+ /*------------------------------------------------------------------*/
+
+   EXEC SQL declare CURCPG cursor for
+
+     select
+             IOPUCTY,
+             GENKEY1,
+             GENKEY2,
+             PARMFL1,
+             PARMFL2,
+             SEQKEY1,
+             SEQKEY2,
+             SEQKEY3
+
+     from    QCHVCTY1
+     where   tablena = 'CPG'
+     order by iopucty
+
+     FOR FETCH ONLY with UR;
+
+   EXEC SQL OPEN CURCPG;
+   putskipa(9,('**++**end open cursor: sqlcode:'!!sqlcode));
+
+   if sqlcode = 0 then
+     return(true);
+   else
+     return(false);
+
+ end open_CPG_cursor;
+
+ /*------------------------------------------------------------------*/
+ /* Starting routine for caching CFG data for CF file users          */
+ /*                                                                  */
+ /*------------------------------------------------------------------*/
+ alloc_CCCE_array: proc
+                   returns (bin fixed(15));
+ /*------------------------------------------------------------------*/
+
+   alloc CCCE_array set(p_CCCE_array);
+   rc = COLLID_ARRAY_CREATED;
+   i  = 0;
+
+   putskipa(11,('in alloc_ccce_array. cr:'!!cr));
+   putskipa(11,('p_CCCE_array:'!!int2hex(unspec(p_CCCE_array))));
+
+   if open_CPG_cursor() then do;
+
+     EXEC SQL FETCH CURCPG
+     INTO :CTY.IOPUCTY,
+          :CTY.GENKEY1,
+          :CTY.GENKEY2,
+          :CTY.PARMFL1,
+          :CTY.PARMFL2,
+          :CTY.SEQKEY1,
+          :CTY.SEQKEY2,
+          :CTY.SEQKEY3;
+
+     do while ( sqlcode = 0 & i <= cr );
+
+       i = i + 1;
+
+       p_CCCE_array->CCCE_array.rows(i).Country        = CTY.IOPUCTY;
+       p_CCCE_array->CCCE_array.rows(i).CollectionId   = CTY.SEQKEY1;
+
+       p_CCCE_array->CCCE_array.rows(i).CodePage       =
+          substr(CTY.PARMFL1,1,4);
+
+       if substr(CTY.PARMFL2,1,4) = 'MBCS' then
+         p_CCCE_array->CCCE_array.rows(i).EncodingType = 'M';
+       else
+         p_CCCE_array->CCCE_array.rows(i).EncodingType = 'S';
+
+
+       call AssignHighValues;
+
+       p_CCCE_array->CCCE_array.rows(i).HighValueSBchr =
+         Cm2.HiValSBchar;
+       p_CCCE_array->CCCE_array.rows(i).HighValueMBchr =
+         Cm2.HiValMBchar;
+
+
+       putskipa(11,('CCCE_array:'               !!  i    !! ' ' !!
+         p_CCCE_array->CCCE_array.rows(i).Country        !! ' ' !!
+         p_CCCE_array->CCCE_array.rows(i).CodePage       !! ' ' !!
+         p_CCCE_array->CCCE_array.rows(i).CollectionId   !! ' ' !!
+         p_CCCE_array->CCCE_array.rows(i).EncodingType   !! ' ' !!
+         p_CCCE_array->CCCE_array.rows(i).HighValueSBchr !! ' ' !!
+         p_CCCE_array->CCCE_array.rows(i).HighValueMBchr
+       ));
+
+       EXEC SQL FETCH CURCPG
+       INTO :CTY.IOPUCTY,
+            :CTY.GENKEY1,
+            :CTY.GENKEY2,
+            :CTY.PARMFL1,
+            :CTY.PARMFL2,
+            :CTY.SEQKEY1,
+            :CTY.SEQKEY2,
+            :CTY.SEQKEY3;
+
+     end;
+
+     if sqlcode ^= 0
+      & sqlcode ^= 100 then do;
+       call sql_error('Wrong SQLcode found in fetch'!!sqlcode);
+       rc = COLLID_SQL_ERROR_FETCH;
+     end;
+
+
+     if i = 0 then do;
+       call sql_error('no records found fetchcounter = 0');
+       call sql_error('count(*) counter              = '!!
+                         p_CCCE_array->CCCE_array.countr);
+     end;
+
+     EXEC SQL CLOSE CURCPG;
+     sqlcode = 0;
+
+   end;
+   else do;
+     call sql_error('No CFG data cached Open failure.'!!cr);
+     rc = COLLID_SQL_ERROR_OPEN;
+   end;
+
+ return(rc);
+ end alloc_CCCE_array;
+
+ /*------------------------------------------------------------------*/
+ /* sql faliure information on sysprint                              */
+ /*------------------------------------------------------------------*/
+ sql_error: proc(text);
+ /*------------------------------------------------------------------*/
+
+   dcl text char(100) var;
+
+   putskipa(5,('-------------------------------------'));
+   putskipa(5,(text));
+   putskipa(5,('Sqlcode:' !! sqlcode));
+   putskipa(5,('-------------------------------------'));
+
+ end sql_error;
+
+ /*------------------------------------------------------------------*/
+ /* This function is retrieving the no. of rows for the CFG table    */
+ /*------------------------------------------------------------------*/
+ count_CPG_rows:  proc returns(bit);
+ /*------------------------------------------------------------------*/
+
+   dcl  cr2     AUTO BIN FIXED(15) INIT(0)  ;
+
+   EXEC SQL
+
+     select  count(*)
+     into    :cr2
+     from    QCHVCTY1
+     where   tablena = 'CPG';
+
+   putskipa(11,('# sqlcode  :'!!sqlcode));
+   putskipa(11,('# cr2      :'!!cr2));
+
+   cr = cr2;
+
+   putskipa(11,('# cr       :'!!cr ));
+
+   if sqlcode = 0
+    & cr     ^= 0 then
+      retbit = TRUE;
+   else
+      retbit = FALSE;
+
+   putskipa(11,('# CPG records in CTY table:'!!cr));
+
+   return(retbit);
+
+ end count_CPG_rows;
+
+ /*------------------------------------------------------------------*/
+ /* Int2Hex:                                                         */
+ /*                                                                  */
+ /* Converts the specified integer to a hex string.                  */
+ /*                                                                  */
+ /* Parameters:                                                      */
+ /*   1. Fixed bin(31)   - Integer                                   */
+ /*                                                                  */
+ /* Returns:                                                         */
+ /*   1. Char(8) var     - Hex output string (no leading zeros)      */
+ /*------------------------------------------------------------------*/
+ Int2Hex: Proc(Int) returns(char(8) var);
+ /*------------------------------------------------------------------*/
+   dcl  Int             fixed bin(31);
+
+   dcl  i               fixed bin(31);
+   dcl  n1              fixed bin(31);
+   dcl  n2              fixed bin(31);
+   dcl  chars(4)        char based(addr(Int));
+   dcl  hex             char(8) var;
+   dcl  hexchars(16)    char init('0','1','2','3','4','5','6','7',
+                                  '8','9','A','B','C','D','E','F');
+   hex = '';
+   do i = 1 to 4;
+     n1 = fixed(UNSPEC(chars(i)) & unspec('f0'x)) / 16;
+     n2 = UNSPEC(chars(i)) & unspec('0f'x);
+     hex = hex !! hexchars(n1+1) !! hexchars(n2+1);
+   end;
+
+   do i = 1 to 3;
+     if substr(hex,1,2) = '00' then
+       hex = substr(hex,3);
+   end;
+
+   return (hex);
+ end Int2Hex;
+
+ /*------------------------------------------------------------------*/
+ /* Hex2Byte:                                                        */
+ /*                                                                  */
+ /* Converts a Charcters(2) hex value to a single Byte               */
+ /*                                                                  */
+ /* Parameters:                                                      */
+ /*   1. CHAR(2)         - hex value i.e: B5                         */
+ /*                                                                  */
+ /* Returns:                                                         */
+ /*   1. Char(1)         - byte with 'B5'x                           */
+ /*------------------------------------------------------------------*/
+ Hex2Byte: Proc(hexParm) returns(char);
+ /*------------------------------------------------------------------*/
+   dcl  hexParm         char(2);
+   dcl  returnChar      char(1) aligned;
+   dcl  1 retcharbit    based(addr(returnChar)),
+          3 binB1       bit(4),
+          3 binB2       bit(4);
+
+   dcl  1 hexParmX      based(addr(hexParm)),
+          3 hexB1       char(1),
+          3 hexB2       char(1);
+
+   dcl  iPos1           fixed bin(31);
+   dcl  iPos2           fixed bin(31);
+   dcl  hexchars        char(16) init('0123456789ABCDEF');
+   dcl  BinValueX(16)   Bit(4)   init('0000'B
+                                     ,'0001'B
+                                     ,'0010'B
+                                     ,'0011'B
+                                     ,'0100'B
+                                     ,'0101'B
+                                     ,'0110'B
+                                     ,'0111'B
+                                     ,'1000'B
+                                     ,'1001'B
+                                     ,'1010'B
+                                     ,'1011'B
+                                     ,'1100'B
+                                     ,'1101'B
+                                     ,'1110'B
+                                     ,'1111'B);
+
+   iPos1 = index(hexchars,hexB1);
+   iPos2 = index(hexchars,hexB2);
+
+   if iPos1 = 0 then
+    iPos1 = 16;
+
+   if iPos2 = 0 then
+    iPos2 = 16;
+
+   binB1      = BinValueX(iPos1);
+   binB2      = BinValueX(iPos2);
+
+   return(returnChar);
+
+ end hex2Byte;
+
+ /*------------------------------------------------------------------*/
+ /* toUpper: Returns the uppercase of a var string.                  */
+ /* Parameters:-                                                     */
+ /*   1. Char var string to uppercase                                */
+ /* Returns:-                                                        */
+ /*   Char var string                                                */
+ /*------------------------------------------------------------------*/
+ toupper: Proc(str)
+          returns(char(255) var);
+ /*------------------------------------------------------------------*/
+   dcl str                char(*) var;
+   dcl ustr               char(length(str))     auto;
+   dcl ustrv              char(length(str)) var auto;
+
+ /*putskipa(11,('toupper: str=<',str,'>'));*/
+   ustr = str;
+   Unspec(ustr) = Unspec(ustr) ! repeat('01000000',length(ustr)-1);
+   ustrv = ustr;
+ /*putskipa(11,('toupper: ret str=<',ustrv,'>'));*/
+   return(ustrv);
+
+ end toupper;
+
+ /*-------------------------------------------------------------------*/
+ chk_numeric: proc (stri)
+              returns(bit);
+ /*-------------------------------------------------------------------*/
+   dcl stri         char(50)  var;
+   return( verify(stri,##NUMERIC) = 0);
+ end chk_numeric;
+
+ /*-------------------------------------------------------------------*/
+ strip:proc(xstring
+           ,xwhere)
+           returns(char(2048) var);
+ /*-------------------------------------------------------------------*/
+
+    dcl xstring              char       (*) var;
+    dcl xwhere               char       (1);
+    dcl ixbegin              fixed bin (15) init (0);
+    dcl ixend                fixed bin (15) init (0);
+
+    if xwhere ^= 'R' then
+      do ixbegin = 1 to length(xstring)
+        until (substr(xstring,ixbegin,1) > ' ');
+      end;
+    else ixbegin = 1;
+
+    if ixbegin > length(xstring)
+    then return('');
+
+    if xwhere ^= 'L' then
+      do ixend = length(xstring) to 1 by -1
+       until (substr(xstring,ixend,1) > ' ');
+      end;
+    else ixend = length(xstring);
+
+    return(substr(xstring,ixbegin,(ixend-ixbegin)+1));
+
+ end strip;
+
+ SQL_dsntiar: procedure;
+
+   DCL DSNTIAR ENTRY OPTIONS(ASM,INTER,RETCODE);
+   DCL I        FIXED BIN(15) INIT(0);
+   DCL DATA_LEN FIXED BIN(31) INIT(120);
+   DCL DATA_DIM FIXED BIN(31) INIT(8);
+   DCL 1 ERROR_MESSAGE AUTOMATIC,
+         3 ERROR_LEN    FIXED BIN(15) UNAL INIT((DATA_LEN*DATA_DIM)),
+         3 ERROR_TEXT(DATA_DIM) CHAR(DATA_LEN);
+   %deact open;
+   %deact close;
+   Open file (sysprint);
+
+   IF sqlca.SQLCODE > 0 THEN DO;
+     PUT SKIP LIST(sqlca.SQLCODE, sqlca.SQLERRM);
+     close file(sysprint);
+     RETURN;
+   END;
+
+   PUT SKIP (2) EDIT
+     ('RETURNCODE',sqlca.SQLCODE,
+      'MESSAGE',sqlca.SQLERRM)
+     (A,COL(20),A,SKIP,
+      A,COL(20),A);
+   IF sqlca.SQLWARN0 = 'W'
+   THEN
+      PUT SKIP (2) EDIT
+      ('WARN1 (TRUNC):',sqlca.SQLWARN1,
+       'WARN2 (NULLS):',sqlca.SQLWARN2,
+       'WARN3 (VARCT):',sqlca.SQLWARN3)
+      (A,COL(20),A,
+       A,COL(20),A,
+       A,COL(20),A);
+
+   CALL DSNTIAR( sqlca, ERROR_MESSAGE , DATA_LEN );
+
+   if pliretv() = 0 then   /* 0 return code from dsntiar */
+      DO I=1 TO DIM(ERROR_TEXT,1);
+         PUT SKIP EDIT ( ERROR_TEXT(I)) (SKIP,A) ;
+      END;
+
+   ELSE
+      PUT SKIP EDIT (' NON-ZERO RETURN CODE FROM PLIRETV() dsntiar ',
+                       PLIRETV() )  ( A, F(10)) ;
+   close file(sysprint);
+
+   %act open;
+   %act close;
+
+ END SQL_dsntiar;
+ %act put;
+ END QCHCIDM;

@@ -1,0 +1,760 @@
+ /*********************************************************************/
+ /* 2MODULE NAME  : QCHDRIM lol                                       */
+ /* APPLICATION  : CHIS                                               */
+ /*--------------+----------------------------------------------------*/
+ /* FUNCTION     : FIRST CALLS QCHDCFM TO GET ALL CHIS RULES TO       */
+ /*              : BE EXECUTED AND LOADS THEN ALL RULES INTO THE CORE */
+ /*              : VIA    QCHL00A (MULTI.REL.ENV WITH    TASK LIBS)   */
+ /*              :     OR QCHRAJM (SINGL.REL.ENV WITHOUT TASK LIBS)   */
+ /*              :                                                    */
+ /*              : IT WILL BE CALLED EITHER BY THE STDM CFL BEFORE    */
+ /*              : THE CHIS INPUT OR OUTPUT RULES                     */
+ /*              : OR BY THE DATA DRIVEN OR BATCH DRIVER              */
+ /*--------------+----------------------------------------------------*/
+ /* AUTHOR       :                                                    */
+ /* DATE         : 06-04-87                                           */
+ /* HISTORY      :                                                    */
+ /* DATE       Who      comments                                      */
+ /* 2008-05-02 SCH      SCH modified trc logic with Multi-UserID      */
+ /*                     and PermTrc(+/-) features                     */
+ /*********************************************************************/
+
+   %INCLUDE QCH##PAD;
+   %INCLUDE QCH##EPS;
+ QCHDRIM : PROC (IO, SP_RULES) REORDER;
+   #MODIDENT(QCHDRIM);
+   DFT  RANGE(*) STATIC;
+
+   %INCLUDE QCHDEPS;
+   %INCLUDE QCHSHYSP;
+   %INCLUDE RTTSHYS;
+   %INCLUDE QCHSHYSX;
+   MACDCLS;
+   %INCLUDE QCHDRVS;
+   %INCLUDE QCHSHYSS;
+
+   DCL 1 SP BASED ($$USPAPTR), %INCLUDE QCHSPAS ; ;
+
+   DCL  IO           CHAR      (  1  );
+   DCL  CS           CHAR      (  3  );
+   DCL  REG_DDNAME   CHAR      (  8  );
+
+   DCL  1 SP_RULES,
+          2 B_RULES      POINTER,
+          2 L_RULES      POINTER,
+          2 E_RULES      POINTER
+          ;
+   DCL  1 CHIS_RULE_A AUTO,                 %INCLUDE  QCHCFLS;;
+
+   DCL  LAC          FIXED BIN ( 15  )      INIT(0);
+   DCL  LRC          FIXED BIN ( 15  )      INIT(0);
+
+
+   DCL  1 CTL1       BASED (SP.CTLP1),      %INCLUDE    QCHCTLS;;
+   DCL  1 CTY1       BASED (SP.CTYP1),      %INCLUDE    QCHCTYS;;
+   DCL  1 SAV_CTY             ,      %INCLUDE QCHCTYS; ;
+
+   DCL  1 CFLKEY     BASED(ADDR(SP.CFLK1)),
+          5 IOPUCTY      CHAR  (  3  ),
+          5 SCREEN       CHAR  (  3  ),
+          5 SUBPROC      CHAR  ( 30  )
+          ;
+
+   DCL  SCRCTY           CHAR  ( 20  );
+   DCL  1 XTSQLCA    STATIC EXTERNAL,       %INCLUDE    QCHSCAS;
+
+   DCL  (SEQ1,SEQ2)  CHAR      (  6  );
+
+   DCL  RC           BIN FIXED ( 31  );
+   DCL  VAR_MSG_TXT  CHAR      ( 16  )      VAR                   ;
+
+   DCL  TIM_BEFEXEC  DEC FIXED ( 15  )                            ;
+   DCL  TIM_AFTEXEC  DEC FIXED ( 15  )                            ;
+   DCL  TIM_ELAPSED  DEC FIXED ( 15  )                            ;
+
+   DCL  MOD_NAME     CHAR      (  8  )      INIT(         'QCHDRIM ');
+   DCL  MOD_IDENT    CHAR      ( 17  )      INIT('.. ..... QCHDRIM ');
+
+   DCL  SAV_TBLK1       CHAR(100)           INIT('');
+   DCL  SAV_TBLI1       CHAR(1)             INIT('');
+   DCL  SAV_TBLC1       CHAR(1)             INIT('');
+   DCL  SAV_TBLNM       CHAR(3)             INIT('');
+   DCL  SAV_SqlCd       fixed bin(31)       INIT(0);
+   DCL  SAV_PARM1       CHAR(18)            INIT('');
+   DCL  SAV_PARM2       CHAR(18)            INIT('');
+   DCL  CurTrace        CHAR(50)            INIT('');
+   DCL  CurUser         CHAR(8)             INIT('');
+   DCL  CurScreen       CHAR(3)             INIT('');
+   DCL  CurSubProc      CHAR(30)            INIT('');
+   DCL  ResumeMode      bit(1)       static init('0'b);
+   DCL  drcmdChkTrace   char(1)      static init('T');
+
+   DCL  SYSPRINT FILE OUTPUT;
+   DCL  (LOW, TRANSLATE, ABS, TIME, DIM, MOD, CHAR, CSTG, VERIFY,
+         PtrAdd, BinValue, Index, Unspec, Fixed) Builtin;
+
+   DCL SAV_PTR                    PTR;
+
+   Dcl modeRead8         char(2)  static init('R8');
+   Dcl trcTab            char(3)  static init('TRC');
+
+
+ /********************************************************************/
+ /*                                                                  */
+ /* Start of Main Processing                                         */
+ /*                                                                  */
+ /********************************************************************/
+
+   open file(sysprint);
+
+   CurUser = Sp.CSP_UserID;
+
+   /*----------------------------------------------------------------*/
+   /* Save current parms                                             */
+   /*----------------------------------------------------------------*/
+
+   SAV_PARM1 = SP.PARM1;
+   SAV_PARM2 = SP.PARM2;
+   SAV_PTR   = SP.CURRENT_RULE;
+   SAV_CTY   = CTY1;
+   SAV_TBLK1 = SP.TBLK1;
+   SAV_TBLI1 = SP.TBLI1;
+   SAV_TBLC1 = SP.TBLC1;
+   SAV_TBLNM = SP.TBL_NAM;
+   SAV_SqlCd = SP.QCHSqlCd;
+
+   /*----------------------------------------------------------------*/
+   /* If special call (SP_RULES address is null), then determine     */
+   /* function based on IO var.                                      */
+   /*----------------------------------------------------------------*/
+
+   if binvalue(SP_RULES.B_RULES) = -1 then do;
+     Select (IO);
+
+       /*------------------------------------------------------------*/
+       /* T - Check trace current CFL                                */
+       /*------------------------------------------------------------*/
+
+       When (drcmdChkTrace) do;
+         call ResumeTrace();
+       end;
+
+       /*-------------------------*/
+       /* Otherwise invalid code */
+       /*-------------------------*/
+
+       Otherwise do;
+         uput skip edit('QCHDRIM: Invalid selection code: ', IO) (a);
+         uclose file(sysprint);
+         signal Error;
+       end;
+
+     end;
+   end;
+
+   /*----------------------------------------------------------------*/
+   /* Otherwise normal call - Perform trace, load of CFL.            */
+   /*----------------------------------------------------------------*/
+
+   else
+     /*--------------------------------------------------------------*/
+     /* Load the CFL and check tracing.                              */
+     /*--------------------------------------------------------------*/
+
+     call LoadCflAndTrace();
+
+
+   /*----------------------------------------------------------------*/
+   /* Restore parms                                                  */
+   /*----------------------------------------------------------------*/
+
+   CTY1            = SAV_CTY;
+   SP.CURRENT_RULE = SAV_PTR;
+   SP.PARM1        = SAV_PARM1;
+   SP.PARM2        = SAV_PARM2;
+   SP.TBLK1        = SAV_TBLK1;
+   SP.TBLI1        = SAV_TBLI1;
+   SP.TBLC1        = SAV_TBLC1;
+   SP.TBL_NAM      = SAV_TBLNM;
+   SP.QCHSqlCd     = SAV_SqlCd;
+
+   /*
+   tstr = sp.control;
+
+   eput skip edit('DRIM: SP.Control 2:') (a);
+   eput skip data(tstr);
+   */
+
+   close file(sysprint);
+   return;
+
+ /*-------------------------------------------------------------------*/
+ /* LoadCflAndTrace:                                                  */
+ /*                                                                   */
+ /* Performs trace processing for this CFL and then loads the rules   */
+ /*-------------------------------------------------------------------*/
+
+ LoadCflAndTrace: Proc;
+
+ /*-------------------------------------------------------------------*/
+ /* FIRST OF ALL PUT A TRACE TABLE ENTRY                              */
+ /*-------------------------------------------------------------------*/
+
+   CALL QCHDTTM (MOD_NAME, IO!!CTL1.IOPUCFL!!SP.CFLK1);
+
+ /*-------------------------------------------------------------------*/
+ /* ANY PROBLEMS UNTIL NOW, IF YES MAKE AN IMMEDIATE RETURN           */
+ /*-------------------------------------------------------------------*/
+
+   IF SP.MAXRC >= 16
+   THEN IMMRET;
+                                       /* INPUT OR OUTPUT ?           */
+   SP.IO_FUNC = IO;
+
+ /*-------------------------------------------------------------------*/
+ /* ONCE WE REACHED A NEW SCREEN, PUT THE SCREEN NAME INTO THE CFLKEY */
+ /*-------------------------------------------------------------------*/
+
+   IF CFLKEY.SCREEN = ''
+   THEN CFLKEY.SCREEN = SUBSTR(õõSCREENID,4,3);
+
+ /*-------------------------------------------------------------------*/
+ /* Set current Sub CFL MainProc, SubProc to current sub CFL.         */
+ /*-------------------------------------------------------------------*/
+
+   CurScreen  = CflKey.Screen;
+   CurSubProc = CflKey.SubProc;
+
+ /*-------------------------------------------------------------------*/
+ /* TIRILILI HERE IT IS THE BIG DIFFERENCE TO STDM, ALL B,L AND E     */
+ /* RULES WILL BE FETCHED FROM THE TPLOAD INTO THE CORE BEFORE EXEC.  */
+ /*-------------------------------------------------------------------*/
+
+   OPEN FILE(SYSPRINT);
+
+   SP_RULES = NULL;
+
+   IF SP.IO_FUNC = 'I' !
+      SP.IO_FUNC = 'O'
+   THEN DO;
+          SEQ1 = '000000';
+          SEQ2 = '999999';
+        END;
+   ELSE DO;
+          SEQ1 = SUBSTR(SP.PARM1, 1, 6);
+          SEQ2 = SUBSTR(SP.PARM2, 1, 6);
+        END;
+ /*----------------------------------------------------------------*/
+   PUT SKIP EDIT (MOD_IDENT,'LOAD ALL ',IO,'-RULES FROM ',
+                             SEQ1,'-',SEQ2,
+                             ' OF CFL ',CFLKEY.SCREEN,CFLKEY.SUBPROC)
+                 (A);
+ /*----------------------------------------------------------------*/
+   TIM_BEFEXEC = RFBZDVM();
+
+
+   call EntryTrace();
+
+   if sp.run_mode = 'M'
+     & IO = 'I' then
+     call AREAPINIT();
+
+   CALL QCHDCFM (CTL1.IOPUCFL, CFLKEY.SCREEN, CFLKEY.SUBPROC, IO ,
+                 SEQ1        , SEQ2         , SP_RULES      , RC  );
+   /**********************/
+   OPEN FILE(SYSPRINT);
+   PUT SKIP EDIT (MOD_IDENT,'After DCFM CALL') (A,A);
+   CLOSE FILE (SYSPRINT);
+   /**********************/
+   TIM_AFTEXEC = RFBZDVM();
+   TIM_ELAPSED = QCH0TAM(TIM_BEFEXEC,TIM_AFTEXEC,'T');
+
+   PUT SKIP EDIT (MOD_IDENT,'CFL LOAD ELAPSED TIME:',TIM_ELAPSED,'/'
+                                                                ) (A);
+
+   IF SP.RUN_MODE = 'B'
+   THEN CALL DEBUG_EXIT ('AFTER DCFM');
+
+   /**********************/
+   OPEN FILE(SYSPRINT);
+   PUT SKIP EDIT (MOD_IDENT,'After DEBUG EXIT') (A,A);
+   CLOSE FILE (SYSPRINT);
+   /**********************/
+   IF RC ^= 0 THEN DO;
+      CLOSE FILE(SYSPRINT);
+      RETURN;
+   END;
+
+ /*-------------------------------------------------------------------*/
+ /* IF NOT A SINGLE RULE WAS FOUND, ITS AN ERROR                      */
+ /*-------------------------------------------------------------------*/
+
+   IF SP_RULES.B_RULES = NULL &
+      SP_RULES.L_RULES = NULL &
+      SP_RULES.E_RULES = NULL
+   THEN DO;
+   UOPEN FILE(SYSPRINT);
+   UPUT SKIP EDIT (MOD_IDENT,'NO RULES FOUND') (A,A);
+   UCLOSE FILE (SYSPRINT);
+          IF SP.DDIAG = '0'B
+          THEN DO;
+                 UOPEN  FILE(SYSPRINT);
+               END;
+
+          IF SP.RUN_MODE = 'M'
+          THEN DO;
+                 SP.RC = 12;
+                 CS = SUBSTR(SP.CFLK1,4,3) ;
+                 IF SUBSTR(SP.CFLK1, 7) = ''
+                 THEN DO;
+                        FLGFLD (*,SP.SYSPREF!!'020','M',CS!!',BLANK');
+                      END;
+                 ELSE DO;
+                        FLGFLD (*,SP.SYSPREF!!'020','M',
+                                CS!!','!!SUBSTR(SP.CFLK1,7));
+                      END;
+               END;
+          ELSE DO;
+                 SP.ROLB_REQU = '1'B;
+                 SP.EOP_FROM_RULE = '1'B;
+                 CS = SUBSTR(SP.CFLK1,4,3) ;
+                 IF SUBSTR(SP.CFLK1, 7) = ''
+                 THEN DO;
+                        UPUT SKIP EDIT('SCREEN/PROCESS ', CS, 'BLANK',
+                                       'NOT FOUND')(A);
+                      END;
+                 ELSE DO;
+                        UPUT SKIP EDIT('SCREEN/PROCESS ', CS,
+                                   SUBSTR(SP.CFLK1, 7),'NOT FOUND')(A);
+                      END;
+               END;
+
+          IF SP.DDIAG = '0'B
+          THEN DO;
+                 UCLOSE FILE(SYSPRINT);
+               END;
+
+          IF SP.IO_FUNC = 'I' !
+             SP.IO_FUNC = 'O'
+          THEN IMMRET;
+        END;
+
+   CLOSE FILE(SYSPRINT);
+
+
+ end LoadCflAndTrace;
+
+ /*-------------------------------------------------------------------*/
+ /* EntryTrace:                                                       */
+ /*                                                                   */
+ /* Handle tracing for entry of (called) CFL.                         */
+ /*-------------------------------------------------------------------*/
+
+ EntryTrace: proc;
+
+   ResumeMode = '0'b;
+
+   if CTL1.FTRCEYN = 'N' !
+      SEQ1 ^= '000000' then
+
+     return;
+
+   eput skip edit('In EntryTrace:') (a);
+   /*----------------------------------------------------------------*/
+   /* Perform tracing.                                               */
+   /*----------------------------------------------------------------*/
+
+   call Trace();
+
+ end EntryTrace;
+
+ /*------------------------------------------------------------------*/
+ /* ResumeTrace:                                                     */
+ /*                                                                  */
+ /* Resume trace for returned-to (calling) CFL.                      */
+ /*------------------------------------------------------------------*/
+
+ ResumeTrace: proc;
+
+   eput skip edit('In ResumeTrace:') (a);
+
+   ResumeMode = '1'b;
+
+   /*---------------------------------------------------------------*/
+   /* Use current Proc/SubProc                                      */
+   /*---------------------------------------------------------------*/
+
+   CurScreen  = CflKey.Screen;
+   CurSubProc = CflKey.SubProc;
+
+   /*---------------------------------------------------------------*/
+   /* Perform tracing.                                              */
+   /*---------------------------------------------------------------*/
+
+   call Trace();
+
+ end ResumeTrace;
+
+ /*-------------------------------------------------------------------*/
+ /* THIS INPUT HANDLES THE TRACE FUNCTION                             */
+ /*-------------------------------------------------------------------*/
+ Trace: proc;
+
+   eput skip edit('In Trace:') (a);
+
+   /*----------------------------------------------------------------*/
+   /* Locate trace entry (if any) for either legacy format or new    */
+   /* format (as per LocTrcEntry proc prolog description).           */
+   /*----------------------------------------------------------------*/
+
+   if CTL1.FTRCEYN ^= 'N' then do;
+     call LocTrcEntry();
+     call ProcessTrcEntry();
+   end;
+   /***********************
+   OPEN FILE(SYSPRINT);
+   PUT SKIP EDIT (MOD_IDENT,'END TRACE') (A,A);
+   CLOSE FILE (SYSPRINT);
+   ***********************/
+
+ END Trace;
+
+ /*----------------------------------------------------------------*/
+ /* LocTrcEntry:                                                   */
+ /*                                                                */
+ /* Locate trace entry for current CFL/subprocess:                 */
+ /*                                                                */
+ /* Two CTY/TRC table formats:                                     */
+ /*                                                                */
+ /* Method     GenKey1         GenKey2    ParmFl1          ParmFl2 */
+ /* ------     -------         -------    ------------     ------- */
+ /* New        CFLName SubProc UserID     bbbbbb                   */
+ /* Legacy     CFLName SubProc            bbbbbbUserID             */
+ /*                                                                */
+ /* Logic:                                                         */
+ /*                                                                */
+ /* ----------------------------------                             */
+ /* Modified locate method:                                        */
+ /* ----------------------------------                             */
+ /*                                                                */
+ /*   Key:                                                         */
+ /*   - GenKey1  - CFLName SubProc                                 */
+ /*   - GenKey2  - UserID                                          */
+ /*                                                                */
+ /*   If found, then trace bits are in ParmFl1                     */
+ /*                                                                */
+ /*   If not found, then attempt to locate again with blank        */
+ /*   userid (legacy method):                                      */
+ /*                                                                */
+ /*   Key:                                                         */
+ /*   - GenKey1  - CFLName SubProc                                 */
+ /*   - GenKey2  -                                                 */
+ /*                                                                */
+ /*   If found:                                                    */
+ /*     if UserId = SPA current user ID then driver bits are taken */
+ /*     from ParmFl1.                                              */
+ /*                                                                */
+ /*     Else check as before using legacy method.                  */
+ /*                                                                */
+ /*   Result ParmFl1 = bbbbbbUserid (bbbbbb = driver bits)         */
+ /*                                                                */
+ /*   Two formats for driver bits:                                 */
+ /*                                                                */
+ /*   bbbbbb    - driver bits to apply for current CFL only        */
+ /*   +bbbbbb   - driver bits to apply permanently for current     */
+ /*               CFL and all sub and parent CFLs.                 */
+ /*   -bbbbbb   - reverts back to temp mode - driver bits to apply */
+ /*               to current CFL only                              */
+ /*                                                                */
+ /* Notes:                                                         */
+ /*                                                                */
+ /* The problem with the legacy method is that there cannot be     */
+ /* more than one userid specified for any given CFL proc/subproc. */
+ /* the new method alleviates this restriction.                    */
+ /*----------------------------------------------------------------*/
+
+ LocTrcEntry: proc;
+   Dcl SqlCd            fixed bin(31);
+   Dcl gkey1            char(20) init(' ');
+   Dcl gkey2            char(20) init(' ');
+
+   /*--------------------------------------------------------------*/
+   /* Modified locate                                              */
+   /*--------------------------------------------------------------*/
+
+   eput skip edit('In LocTrcEntry:') (a);
+
+   eput skip edit('LocTrcEntry for:') (a);
+   eput skip edit('  Screen       : ', CurScreen) (a);
+   eput skip edit('  Subproc      : ', CurSubProc) (a);
+
+   CurTrace = '';
+
+   eput skip edit('  User         : ', CurUser) (a);
+   SqlCd   = 0;
+
+   gkey1   = trim(CurScreen) !! ' ' !! trim(CurSubProc);
+   gkey2   = CurUser;
+
+   eput skip edit ('gkey1:',gkey1) (a);
+   eput skip edit ('gkey2:',gkey2) (a);
+   SqlCd = AccessCty(trcTab, modeRead8, gkey1, gkey2, ' ', ' ');
+
+   if SqlCd = 0 then do;
+     CurTrace = Cty1.ParmFl1;
+     eput skip edit('User trace Entry Found: <',trim(CurTrace),'>') (a);
+   end;
+
+   if SqlCd ^= 0 then do;
+     gkey2 = ' ';
+     SqlCd = AccessCty(trcTab, modeRead8, gkey1, gkey2, ' ', ' ');
+
+     if SqlCd = 0 then do;
+       CurTrace = Cty1.ParmFl1;
+
+       eput skip edit('Generic trace entry found: <',
+                      trim(CurTrace),'>') (a);
+     end;
+
+     else do;
+       eput skip edit('No trace entry found') (a);
+     end;
+
+   end;
+
+ end LocTrcEntry;
+
+ /*-----------------------------------------------------------------*/
+ /* ProcessTrcEntry:                                                */
+ /*                                                                 */
+ /* Process current trace entry in CurTrace along with current      */
+ /* driver bits to re-establish trace on/off mode.                  */
+ /*-----------------------------------------------------------------*/
+
+ ProcessTrcEntry: Proc;
+
+ /*-------------------------------------------------------------------*/
+ /* FAKE CFL LINE AND CALL QCH1ZZM VIA VARIABLE ENTRY                 */
+ /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
+ /* QCH1ZZM IS DEFINED IN PLIMAC QCH##EPS. IT GETS LOADED BY QCHD00M  */
+ /* WHICH ASSIGNS THE LOAD ADDRESS TO THE QCH1ZZM VARIABLE ENTRY.     */
+ /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
+ /*-------------------------------------------------------------------*/
+   /*                         TO BE CHANGED WITH 5CY INPUT            */
+   /*12345678901234567890123 */
+   /*+111111TB7154 000000002 */
+   /*+111111ATXLKU1          */
+
+   SP.PARM1 = Curtrace               ;
+   CHIS_RULE_A.IOPUCTY = CTL1.IOPUCFL;
+   CHIS_RULE_A.SCREEN  = CFLKEY.SCREEN;
+   CHIS_RULE_A.SUBPROC = CFLKEY.SUBPROC;
+   CHIS_RULE_A.NEXT_STEP = '0';
+   CHIS_RULE_A.SDTMRULE = IO !! 'B';
+   CHIS_RULE_A.RULEIMPL = '-';
+   CHIS_RULE_A.RULENAME = 'QCH1ZZP';
+   CHIS_RULE_A.PARM1 = SP.PARM1;
+   CHIS_RULE_A.PARM2 = '';     /* TEMPX.PARM2; */
+   CHIS_RULE_A.DESCR = '';
+   CHIS_RULE_A.IAGRENO = '';
+   CHIS_RULE_A.CAGRCTY = '';
+   CHIS_RULE_A.IAGRVER = '';
+   CHIS_RULE_A.DAGREEX = '';
+   CHIS_RULE_A.DDBSLUP = '';
+   CHIS_RULE_A.TTBSLUP = '';
+   CHIS_RULE_A.IUSRIDY = '';
+
+   /***********************
+      UOPEN FILE(SYSPRINT);
+      UPUT SKIP EDIT ('CTY1.PARMFL1  :',CTY1.PARMFL1) (A);
+      UPUT SKIP EDIT ('SP.PARM1-drim :',SP.PARM1    ) (A);
+      UPUT SKIP EDIT ('Curtrace-drim :',Curtrace    ) (A);
+      UCLOSE FILE (SYSPRINT);
+    **********************/
+
+   CALL QCH1ZZM($$USPAPTR);
+
+ end ProcessTrcEntry;
+
+ /*------------------------------------------------------------------*/
+ /* AccessCty:                                                       */
+ /*                                                                  */
+ /* Fills SP.TBLK1 with key to read or update the following          */
+ /* trace record from the TRC (CTY) table:                           */
+ /*    KEY1  = VOLBMP ! APIBMP                                       */
+ /*    KEY2  = TRACELVL                                              */
+ /*                                                                  */
+ /*  For R8 read:                                                    */
+ /*    key    = genkey1, genkey2                                     */
+ /*    result = parmFl1                                              */
+ /*                                                                  */
+ /*  For RC read:                                                    */
+ /*    key    = genkey1, genkey2, parmFl1                            */
+ /*    result = parmFl2                                              */
+ /*                                                                  */
+ /*    genkey1  = CFL name                                           */
+ /*    genkey2  = Screen subprocess name                             */
+ /*    parmFl1  = userid (or blank for no user)                      */
+ /*    parmFl2  = result driver trace bits                           */
+ /*                                                                  */
+ /* Parameters:                                                      */
+ /*   1. Char(8)         - Table name                                */
+ /*   2. Char(2)         - Access mode (Read, Update, Insert, Delete)*/
+ /*   3. Char(20)        - key1 (APIBMP or VOLBMP)                   */
+ /*   4. Char(20)        - key2 (TRACELVL)                           */
+ /*   5. Char(50)        - parmFl1                                   */
+ /*   6. Char(50)        - parmFl2                                   */
+ /*                                                                  */
+ /* Returns:                                                         */
+ /*   Fixed bin(31) - SqlCd                                          */
+ /*------------------------------------------------------------------*/
+
+ AccessCty: proc(tbName, mode, ingkey1, ingkey2, inparmfl1, inparmfl2)
+            returns(fixed bin(31));
+
+   Dcl tbName           char(3);
+   Dcl mode             char(2);
+   Dcl ingkey1          char(*);
+   Dcl ingkey2          char(*);
+   Dcl inparmfl1        char(*);
+   Dcl inparmfl2        char(*);
+
+   Dcl gkey1            char(20) init(' ');
+   Dcl gkey2            char(20) init(' ');
+   Dcl parmfl1          char(50) init(' ');
+   Dcl parmfl2          char(50) init(' ');
+   Dcl SqlCd            fixed bin(31);
+   DCL 1 CHIS_RULE_A    auto,
+         %INCLUDE  QCHCFLS;;
+
+   if CTL1.FTRCEYN = 'N' then
+     return (0);
+
+   SP.CURRENT_RULE = ADDR(CHIS_RULE_A);
+
+   gkey1   = ingkey1;
+   gkey2   = ingkey2;
+   parmfl1 = inparmfl1;
+   parmfl2 = inparmfl2;
+   SqlCd   = 0;
+
+   eput skip edit('AccessCty:') (a);
+   eput skip edit('  Table name  = ', tbName) (a);
+   eput skip edit('  Access mode = ', Mode) (a);
+   eput skip edit('  gkey1       = <',trim(gkey1),'>') (a);
+   eput skip edit('  gkey2       = <',trim(gkey2),'>') (a);
+   eput skip edit('  parmfl1     = <',trim(parmfl1),'>') (a);
+   eput skip edit('  parmfl2     = <',trim(parmfl2),'>') (a);
+
+   Cty1.IOPUCTY = CTL1.IOPUCTY;
+   Cty1.TABLENA = tbName;
+   Cty1.GENKEY1 = gkey1;
+   Cty1.GENKEY2 = gkey2;
+   Cty1.PARMFL1 = parmfl1;
+   Cty1.PARMFL2 = parmfl2;
+
+   SP.TBLI1 = substr(mode, 1, 1);
+   SP.TBLC1 = substr(mode, 2, 1);
+
+   if SP.TBLI1 = substr(modeRead8, 1, 1) then
+     CHIS_RULE_A.DESCR    = 'READ   CTY TBL';
+
+   else do;
+     eput skip edit('AccessCty: Invalid access mode - cancelled') (a);
+     return (0);
+   end;
+
+   SP.TBL_NAM = 'CTY';
+   SP.TBLK1 = CTL1.IOPUCTY   !!
+              tbName         !!
+              gkey1          !!
+              gkey2          !!
+              parmFl1;
+
+   CHIS_RULE_A.IOPUCTY = CTL1.IOPUCFL;
+   CHIS_RULE_A.SCREEN  = CFLKEY.SCREEN;
+   CHIS_RULE_A.SUBPROC = CFLKEY.SUBPROC;
+   CHIS_RULE_A.NEXT_STEP = '1';
+   CHIS_RULE_A.SDTMRULE = 'B' !! 'B';
+   CHIS_RULE_A.RULEIMPL = '-';
+   CHIS_RULE_A.RULENAME = 'QCH5CYP';
+   CHIS_RULE_A.PARM1    = '';
+   CHIS_RULE_A.PARM2    = '';     /* TEMPX.PARM2; */
+   CHIS_RULE_A.IAGRENO  = '';
+   CHIS_RULE_A.CAGRCTY  = '';
+   CHIS_RULE_A.IAGRVER  = '';
+   CHIS_RULE_A.DAGREEX  = '';
+   CHIS_RULE_A.DDBSLUP  = '';
+   CHIS_RULE_A.TTBSLUP  = '';
+   CHIS_RULE_A.IUSRIDY  = '';
+
+   eput skip edit('Calling QCH5CYM') (a);
+
+   call QCH5CYM($$USPAPTR);
+
+   SqlCd = SP.qchsqlcd;
+
+   eput skip edit('AccessCty: SqlCd = ',trim(char(SqlCd))) (a);
+
+   if SqlCd ^= 0 &
+      SqlCd ^= 100 then do;
+
+     VAR_MSG_TXT = SP.QCHSQLCD!!','!!'DIR';
+
+     OPEN FILE(SYSPRINT);
+      put skip EDIT (MOD_IDENT,'INVALID SQL-CODE AT READ 5CY') (A);
+      PUT SKIP EDIT (MOD_IDENT,'SQL = ',SP.QCHSQLCD) (A,A);
+      PUT SKIP EDIT (SP.RUN_MODE) (A);
+     CLOSE FILE (SYSPRINT);
+
+     FLGFLD (*,SP.SYSPREF!!'030','M',char(VAR_MSG_TXT));
+
+     if SP.RUN_MODE = 'D' !
+        SP.RUN_MODE = 'B' then
+
+       signal Error;
+
+     SP.MAXRC = 16;
+  /* IMMRET; */ call pliretc(8);
+   end;
+
+   return (SqlCd);
+ END AccessCty;
+
+ /*------------------------------------------------------------------*/
+ /* Trim:                                                            */
+ /*                                                                  */
+ /* Removes leading and trailing blanks from a string and returns    */
+ /* the trimmed string.                                              */
+ /*                                                                  */
+ /* Parameters:                                                      */
+ /*   1. Char(*)         - String                                    */
+ /*                                                                  */
+ /* Returns:                                                         */
+ /*   1. Char(1000) var  - Trimmed string                            */
+ /*------------------------------------------------------------------*/
+
+ Trim: Proc(Str) returns(char(1000) var);
+   Dcl  Str             char(*);
+
+   Dcl  i               fixed bin(31);
+   Dcl  TrimStr         char(1000) var;
+
+   TrimStr = '';               /* Initial return string is Str       */
+
+   i = verify(Str,' ');        /* Find first non-blank               */
+   if i > 0 then do;           /* Found a non-blank after zero or more
+                                  leading blanks                     */
+     TrimStr = substr(Str,i);  /* Remove leading blanks              */
+
+     do i = length(TrimStr) to 1 by -1
+            while (substr(TrimStr,i,1) = ' ');
+     end;
+
+     TrimStr = substr(TrimStr,1,i);
+   end;
+
+   return (TrimStr);
+ end Trim;
+
+ END QCHDRIM ;

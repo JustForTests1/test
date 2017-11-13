@@ -1,0 +1,160 @@
+ /*********************************************************************/
+ /* QCHD00M - ENTRY POINT OF DRIVER LOAD MODULE                       */
+ /* 12345                                                             */
+ /* FUNCTION : To perform initialisation to the Driver prior to its   */
+ /*            'business' functions being invoked.                    */
+ /*                                                                   */
+ /*            Principally, this is to set the values of external     */
+ /*            pointers                                               */
+ /*                                                                   */
+ /* PARAMETERS : 1. PTR - output - pointer to be set to the address of*/
+ /*                                the Driver's vector table - which  */
+ /*                                is contained within this module.   */
+ /*              2. PTR - input  - address of the SDTM entry points   */
+ /*                                referenced by the Driver           */
+ /*              3. PTR - input  - the value which is to be assigned  */
+ /*                                to the external pointer $XTVTAB.   */
+ /*                                                                   */
+ /* NOTE: Currently, the logic expects all of the driver routines to  */
+ /*       be linkedited as a single load module                       */
+ /*                                                                   */
+ /*********************************************************************/
+ %INCLUDE QCH##PAD;
+ %INCLUDE QCH##EPS;
+ QCHD00M:PROC(PARM_SDTM_PTR,
+              PARM_EXT_PTR) REORDER;
+ /*-------------------------------------------------------------------*/
+ /* Parameters                                                        */
+ /*-------------------------------------------------------------------*/
+ DCL (PARM_SDTM_PTR,
+      PARM_EXT_PTR)              PTR;
+
+ /*-------------------------------------------------------------------*/
+ /* External declarations                                             */
+ /*-------------------------------------------------------------------*/
+ DCL $XTVTAB                EXT PTR;
+ DCL 1 $$VTAB BASED($XTVTAB),
+      %INCLUDE RTTSHV0;
+ DCL 1 SP BASED($$USPAPTR),
+       %INCLUDE QCHSPAS;
+ DCL õCHISVC                EXT PTR INIT(NULL);
+ DCL FB(2)                  FIXED BIN(31,0) BASED;
+ DCL I                      bin fixed(15,0);
+ DCL RC                     FIXED BIN(15,0);
+
+ DCL 1 EXTENSION            STATIC,
+       %INCLUDE QCHDEPS1;
+ DCL 1 EXTENSION_A          AUTOMATIC,
+       %INCLUDE QCHDEPS1;
+
+ DCL EV                     ENTRY VARIABLE BASED;
+ DCL (ADDR,
+      FIXED,
+      SUBSTR,
+      BINARYVALUE,
+      UNSPEC,
+      NULL)                 BUILTIN;
+
+ DRIVER_EPS.EXT_PTR = ADDR(EXTENSION);
+ õCHISVC = ADDR(DRIVER_EPS);
+ $XTVTAB = PARM_EXT_PTR;
+
+ DRIVER_VECTOR = õCHISVC;
+
+ SDTM_VECTOR,
+ DRIVER_EPS.SDTM_EP_PTR = PARM_SDTM_PTR;
+
+ /*-------------------------------------------------------------------*/
+ /* Driver vector table                                               */
+ /* Note: The ##CHIS_EPS macro generates assignment statements. These */
+ /*       are to be executed only if this is the first time this      */
+ /*       module is executed after it has been loaded.                */
+ /*-------------------------------------------------------------------*/
+ IF EXTENSION.INDX_PTR = NULL
+ THEN DO;
+        EXTENSION = EXTENSION_A;
+        DCL 1 DRIVER_EPS           STATIC,
+              ##CHIS_EPS(VAR);
+
+        /*------------------------------------------------------------*/
+        /* ensure that all of the modules required by the driver are  */
+        /* linked to the driver. If any are found to be missing, an   */
+        /* attempt is made to dynamically load them.                  */
+        /*------------------------------------------------------------*/
+        %ACT ##CHIS_EPS_COUNT,
+             ##CHIS_EPS_STR,
+             ##CHIS_EPS_STR1;
+        DCL 1 M_STRUC(##CHIS_EPS_COUNT) AUTO,
+              3 LMOD_NAMES CHAR(8) INIT(##CHIS_EPS_STR),
+              3 LMOD_PTRS  PTR     INIT(##CHIS_EPS_STR1);
+
+        DO I = 1 TO ##CHIS_EPS_COUNT;
+        /***************************************
+        put skip edit('Module name = <',
+                      m_struc.lmod_names(i),
+                      '>, ptr = <',
+                      int2hex(binaryvalue(m_struc.lmod_ptrs(i))),
+                      '>') (a);
+        if binaryvalue(m_struc.lmod_ptrs(i)) ^= 0 then
+          put skip edit('  EP addr = <',
+                      int2hex(m_struc.lmod_ptrs(i)->fb(1)),
+                      '>') (a);
+         **************************************/
+          IF M_STRUC.LMOD_PTRS(I)->FB(1) = 0
+          THEN CALL LOAD_LMOD(M_STRUC.LMOD_NAMES(I),
+                              M_STRUC.LMOD_PTRS(I)->EV);
+        END;
+        CALL LOAD_LMOD('QCHINDX',EXTENSION.CFL_INDEX);
+        EXTENSION.INDX_PTR = EXTENSION.CFL_INDEX;
+      END;
+ ELSE EXTENSION.LABEL_INIT = 0;
+ LOAD_LMOD:PROC(PARM_NAME,PARM_EV);
+ DCL PARM_NAME         CHAR(8),
+     PARM_EV           ENTRY VARIABLE;
+ DCL 1 DCGM,
+       3 DCGM_A        FIXED BIN(15,0) INIT(1),
+       3 FILL(3)       FIXED BIN(15,0),
+       3 NAME          CHAR(8),
+       3 EV            ENTRY VARIABLE;
+ DCGM.NAME = PARM_NAME;
+ CALL QCHDCGM(ADDR(DCGM),'D');
+ PARM_EV = DCGM.EV;
+ END LOAD_LMOD;
+
+ /*------------------------------------------------------------------*/
+ /* Int2Hex:                                                         */
+ /*                                                                  */
+ /* Converts the specified integer to a hex string.                  */
+ /*                                                                  */
+ /* Parameters:                                                      */
+ /*   1. Fixed bin(31)   - Integer                                   */
+ /*                                                                  */
+ /* Returns:                                                         */
+ /*   1. Char(8) var     - Hex output string (no leading zeros)      */
+ /*------------------------------------------------------------------*/
+
+ Int2Hex: Proc(Int) returns(char(8) var);
+   Dcl  Int             fixed bin(31);
+
+   Dcl  i               fixed bin(31);
+   Dcl  n1              fixed bin(31);
+   Dcl  n2              fixed bin(31);
+   Dcl  chars(4)        char based(addr(Int));
+   Dcl  hex             char(8) var;
+   Dcl  hexchars(16)    char init('0','1','2','3','4','5','6','7',
+                                  '8','9','A','B','C','D','E','F');
+   hex = '';
+   do i = 1 to 4;
+     n1 = fixed(UNSPEC(chars(i)) & unspec('f0'x)) / 16;
+     n2 = UNSPEC(chars(i)) & unspec('0f'x);
+     hex = hex !! hexchars(n1+1) !! hexchars(n2+1);
+   end;
+
+   do i = 1 to 3;
+     if substr(hex,1,2) = '00' then
+       hex = substr(hex,3);
+   end;
+
+   return (hex);
+ end Int2Hex;
+ END QCHD00M;

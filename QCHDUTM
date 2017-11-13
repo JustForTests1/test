@@ -1,0 +1,3928 @@
+ /*********************************************************************/
+ /* MODULE NAME  : QCHDUTM                                            */
+ /* APPLICATION  : CHIS DRIVER           (C) COPYRIGHT IBM CORP. 1991 */
+ /*-------------------------------------------------------------------*/
+ /*-------------------------------------------------------------------*/
+ /* FUNCTION      : PERFORMS ALL UTILITY FUNCTIONS                    */
+ /*               :---------------------------------------------------*/
+ /*  DATECALC     : ADD/SUB NR OF DAYS/MONTHS/YEARS TO CHR(10) DATE   */
+ /*  DATEOK       : VALIDATE DATE IN CHAR(10) DATE FORMAT             */
+ /*  MONTHDAYS    : RETURNS NUMBER OF DAYS IN MONTH FOR CHR(10) DATE  */
+ /*  ISLEAPYEAR   : VERIFY CHAR(10) DATE IS IN A LEAP YEAR            */
+ /*  DATEADD      : ADD NUMBER OF DAYS/MONTHS/YEARS TO DEC(6) YYMMDD  */
+ /*  DB2_ADD      : ADD NUMBER OF DAYS/MONTHS/YEARS TO CHR(10) DATE   */
+ /*  DATESUB      : SUBTRACT DAYS/MONTHS/YEARS FROM DEC(6) YYMMDD     */
+ /*  DB2_SUB      : SUBTRACT DAYS/MONTHS/YEARS FROM CHR(10) DATE      */
+ /*  DATECHK      : VALIDATE CHARACTER(6) DATE OF FORMAT YYMMDD       */
+ /*  DAT5DAT6     : REFORMAT DECIMAL(5) YYDDD TO DECIMAL(6) YYMMDD    */
+ /*  DAT6DAT5     : REFORMAT DECIMAL(5) YYDDD TO DECIMAL(6) YYMMDD    */
+ /*  DAT6DAT7     : REFORMAT DECIMAL(6) YYMMDD TO DECIMAL(7) YYYYDDD  */
+ /*  DAY          : RETURNS DAY DEC(2)     OF DECIMAL(6) DATE         */
+ /*  MONTH        : RETURNS MONTH DEC(2)   OF DECIMAL(6) DATE         */
+ /*  YEAR         : RETURNS YEAR DEC(2)    OF DECIMAL(6) DATE         */
+ /*  DAYS_OF_MONTH: RETURNS ULTIMO DAY OF MONTH FROM DEC(6)  YYMMDD   */
+ /*  DAY_OF_WEEK  : RETURNS DAY CHAR(5) OF WEEK FROM CHAR(6) YYMMDD   */
+ /*  CLC_MONTH    : RETURNS NUMBER OF MONTHS DIFF. BETWEEN 2 DATES    */
+ /*  CLC_DAYS     : RETURNS NUMBER OF DAYS   DIFF. BETWEEN 2 DB2 DATES*/
+ /*  CLC_DAYS_30  : RET. # OF DAYS BETWEEN 2 DB2 DATES BASED ON 30D/M */
+ /*  DEC5_TO_DB2  : RETURNS DB2 (CHAR(10)) DATE FOR DEC(5) DATE       */
+ /*  DEC6_TO_DB2  : RETURNS DB2 (CHAR(10)) DATE FOR DEC(6) DATE       */
+ /*  CHR6_TO_DB2  : RETURNS DB2 (CHAR(10)) DATE FOR CHAR(6) DATE      */
+ /*  CHR10_TO_DB2 : RETURNS DB2 (CHAR(10)) DATE FOR CHAR(10) DATE     */
+ /*  DB2_TO_DEC5  : RETURNS DEC(5) DATE YYMMDD FOR DB2-ISO DATE       */
+ /*  DB2_TO_DEC6  : RETURNS DEC(6) DATE YYMMDD FOR DB2-ISO DATE       */
+ /*  DB2_TO_CHR6  : RETURNS CHAR(6) DATE YYMMDD FOR DB2-ISO DATE      */
+ /*  DB2_TO_CHR10 : RETURNS CHAR(10) DATE YYMMDD FOR DB2-ISO DATE     */
+ /*  TIMEADD      : ADD TWO TIME FIELDS CHR(6) HHMMSS                 */
+ /*  DEC9_TO_DB2  : RETURNS DB2 (CHAR(8)) TIME FOR DEC(9) TIME        */
+ /*  CHR9_TO_DB2  : RETURNS DB2 (CHAR(8)) TIME FOR CHAR(9) TIME       */
+ /*  CHR8_TO_DB2  : RETURNS DB2 (CHAR(8)) TIME FOR CHAR(8) TIME       */
+ /*  MAX_DB2_DAT  : RETURNS DB2 (CHAR(10)) DATE WITH HIGH VALUE       */
+ /*  MIN_DB2_DAT  : RETURNS DB2 (CHAR(10)) DATE WITH LOW  VALUE       */
+ /*  MIN_DB2_TMP  : RETURNS DB2 (CHAR(26)) TIMESTAMP WITH LOW  VALUE  */
+ /*  MAX_DB2_TMP  : RETURNS DB2 (CHAR(26)) TIMESTAMP WITH HIGH VALUE  */
+ /*  MIN_DB2_TIM  : RETURNS DB2 (CHAR(8)) TIME WITH LOW  VALUE        */
+ /*  RUN_DAT_TMP  : RETURNS DB2 (CHAR(26)) SPA.RUNDATE TIMESTAMP      */
+ /*  CUR_DAT_TIM  : RETURNS DEC FIXED (15) CURRENT DATE AND TIME      */
+ /*  RUN_DAT_TIM  : RETURNS DEC FIXED (15) SPA.RUNDATE DATE AND TIME  */
+ /*  DIF_DAT_TIM  : RETURNS DEC FIXED (15) DIFFERENCE BETWEEN TWO     */
+ /*                 DEC FIXED (15) DATE-TIMES                         */
+ /*               :---------------------------------------------------*/
+ /*  FLD_FREEZE   : FREEZES FIELD CORRESPONDING TO PASSED FIELDNAME   */
+ /*  FLD_HIGHLITE : HIGHLIGHTS AN INPUT FIELD ON SCREEN               */
+ /*  GET_FLDPTR   : RETRIEVES THE CORR. INP.FLD.PTR OF PASSED FLDNAM  */
+ /*  GET_MCSPTR   : RETRIEVES THE CORR. MCS.STR.PTR OF PASSED FLDNAM  */
+ /*  FLD_FRZALL   : FREZZES ALL INPUT FIELDS                          */
+ /*  SET_CURSOR   : SET CURSOR TO PASSED FIELDNAME                    */
+ /*               :---------------------------------------------------*/
+ /*  RND_BEF_AFT  : ROUND AMOUNT TO BEFORE/AFTER COMMA                */
+ /*  PERCENT      : CALCULATE AMOUNT +/- PERCENTAGE OF AMOUNT         */
+ /*  PERCENT2     : REDUCE DECIMAL(15,2) AMOUNT WITH PERCENTAGE N     */
+ /*  PCT_SUM_ALIGN: CALCULATE PERCENTAGE ON ITEM AND ALIGN WITH SUM   */
+ /*  PCT_PCT_ALIGN: CALCULATE PERCENTAGE ON ITEM AND ALIGN WITH PCTSUM*/
+ /*  PRORATE_START: CALCULATES PRORATE START DATE                     */
+ /*  PRORATE_STOP : CALCULATES PRORATE STOP DATE                      */
+ /*  UNIQUE_ID    : RETURNS STAMP DEC FIXED (15) FORMAT YYDDDHHMMSSTTT*/
+ /*  UNIQUE_IR    : RETURNS STAMP DEC FIXED (15) FORMAT TTTSSMMHHDDDYY*/
+ /*  CLC_VAT_AMOUN: CALCULATES THE VAT AMOUNT                         */
+ /*  CLC_CNV_AMOUN: CALCULATES THE CNV AMOUNT                         */
+ /*               :---------------------------------------------------*/
+ /*  LOCK_SET     : SETS A MVS LOCK                                   */
+ /*  LOCK_TEST    : TESTS THE STATUS OF A MVS LOCK.                   */
+ /*  LOCK_FREE    : FREES A MVS LOCK                                  */
+ /*                 *** FOR THE ABOVE 3 FUNCTIONS SEE THE MACRO       */
+ /*                 *** DESCRIPTION FOR THE ENQ AND DEQ MACROS FOR THE*/
+ /*                 *** MEANING OF THE RETURN CODES. (-1 INDICATES    */
+ /*                 *** THAT AN INVALID COMBINATION OF PARAMETERS WAS */
+ /*                 *** PASSED TO QCHSLMA).                           */
+ /*-------------------------------------------------------------------*/
+ /* HISTORY      : TYPE HIST IN COMMAND LINE AND PRESS ENTER          */
+ /*********************************************************************/
+
+   %INCLUDE QCH##PAD;
+   %INCLUDE QCH##EPS;
+ QCHDUTM: PROCEDURE ($$USPAPTR,PRC_NAM,IP1,IP2,IP3,OP1) REORDER;
+   DFT  RANGE(*) STATIC;
+   #MODIDENT(QCHDUTM);
+   %INCLUDE QCHDEPS;
+
+   %INCLUDE QCHSHY1S; ;
+   %INCLUDE QCHPPRX ; ;
+   %INCLUDE QCHZARCS; ;
+   %INCLUDE QCHGUIS ; ;
+   %INCLUDE QCHAREA ; ;
+
+   DCL  $$USPAPTR ptr;
+   DCL  1 SPA BASED($$USPAPTR),      %INCLUDE QCHSPAS; ;
+
+   /* TABLE DECLARATIONS FOR UNIDRV01*/
+   DCL  1 SPP        BASED(SPA.PTRP1),      %INCLUDE QCHPTRS;;
+   DCL  1 SP2        BASED(SPP.PTRP2),      %INCLUDE QCHPTR2;;
+   DCL  1 COC        BASED(SPP.COCP1),      %INCLUDE QCHCOCS;;
+   DCL  1 CON        BASED(SPA.CONP1),      %INCLUDE QCHCONS;;
+   DCL  1 LIO        BASED(SPA.LIOP1),      %INCLUDE QCHLIOS;;
+   DCL  1 CCT        BASED(SPA.CCTP1),      %INCLUDE QCHCCTS;;
+
+   AreaDef;;
+   dcl pa_vec ptr static init(null());
+   dcl 1 area_$õ$_vector based,
+         5   name char(40),
+         5   sequence bin fixed(15),
+         5   anchor  ptr
+         ;
+   dcl p_area_inter    ptr static init(Null());
+   DCL 1 Area_Inter    BASED(p_area_inter),
+         3 AREA_LEN    FIXED BIN(31,0),
+         3 AREA_DATA   AREA(INTERNA
+   REFER(AREA_LEN)),
+   INTERNA     FIXED BIN(31,0) INIT(99999)
+   ;
+
+   DCL 1 link_struc based ,
+          3 p_lnext ptr   ,
+          3 p_lprev ptr   ,
+          3 p_ldata ptr   ;
+
+   DCL  PRC_NAM      CHAR      ( 13  )                               ;
+
+   DCL  IP1          PTR                                             ;
+   DCL  IP2          PTR                                             ;
+   DCL  IP3          PTR                                             ;
+
+   DCL  OP1          PTR                                             ;
+
+   DCL  (DIVIDE                                                      ,
+         MULTIPLY                                                    ,
+         ROUND                                                       ,
+         MOD                                                         ,
+         DATE                                                        ,
+         DATETIME,
+         TIME                                                        ,
+         EMPTY                                                       ,
+         INDEX )     BUILTIN                                         ;
+
+   DCL  C07V_1       CHAR      (7)          BASED;
+   DCL  EV1_1        entry     variable     BASED;
+   DCL  D01_1        DEC FIXED (  1  )      BASED;
+   DCL  D02_1        DEC FIXED (  2  )      BASED;
+   DCL  D03_1        DEC FIXED (  3  )      BASED;
+   DCL  D05_1        DEC FIXED (  5  )      BASED;
+   DCL  D06_1        DEC FIXED (  6  )      BASED;
+   DCL  D07_1        DEC FIXED (  7  )      BASED;
+   DCL  D09_1        DEC FIXED (  9  )      BASED;
+   DCL  D15_1        DEC FIXED ( 15  )      BASED;
+   DCL  D15_2        DEC FIXED ( 15  )      BASED;
+   DCL  D52_1        DEC FIXED (  5,2)      BASED;
+   DCL  D63_1        DEC FIXED (  6,3)      BASED;
+   DCL  D152_1       DEC FIXED ( 15,2)      BASED;
+   DCL  D152_2       DEC FIXED ( 15,2)      BASED;
+   DCL  D153_1       DEC FIXED ( 15,3)      BASED;
+   DCL  D154_1       DEC FIXED ( 15,4)      BASED;
+   DCL  FB31         FIXED BIN ( 31,0)      BASED;
+
+   DCL  1 STR_1                             BASED,
+          2 D154_11 DEC FIXED ( 15,4)                                ,
+          2 D152_12 DEC FIXED ( 15,2)                                ,
+          2 D152_13 DEC FIXED ( 15,2)                                ;
+
+   DCL  1 STR_2                             BASED,
+          2 D154_21 DEC FIXED ( 15,4)                                ,
+          2 D1512_22 DEC FIXED ( 15,12)                              ,
+          2 D152_23 DEC FIXED ( 15,2)                                ;
+
+   DCL  P01          PTR                    BASED;
+   DCL  D1512_1      DEC FIXED ( 15,12)     BASED;
+   DCL  C01_1        CHAR      (  1  )      BASED;
+   DCL  C02_1        CHAR      (  2  )      BASED;
+   DCL  C02_2        CHAR      (  2  )      BASED;
+   DCL  C03_1        CHAR      (  3  )      BASED;
+   DCL  C04_1        CHAR      (  4  )      BASED;
+   DCL  C05_1        CHAR      (  5  )      BASED;
+   DCL  C06_1        CHAR      (  6  )      BASED;
+   DCL  C08_1        CHAR      (  8  )      BASED;
+   DCL  C09_1        CHAR      (  9  )      BASED;
+   DCL  C10_1        CHAR      ( 10  )      BASED;
+   DCL  C10_2        CHAR      ( 10  )      BASED;
+   DCL  C26_1        CHAR      ( 26  )      BASED;
+   DCL  C40_1        CHAR      ( 40  )      BASED;
+   DCL  B15_1        BIN FIXED ( 15  )      BASED;
+   DCL  CHARVAR      CHAR      (255  ) VAR  BASED;
+   DCL  C01_vtsd     CHAR      (1000 ) var  BASED;
+   DCL  C02_vtsd     CHAR      (1000 ) var  BASED;
+   DCL  C03_vtsd     CHAR      (1000 ) var  BASED;
+
+   DCL  TRC_TXT      CHAR      (150  )      VAR                      ;
+   DCL  PIC6         PIC       '999999' BASED;
+   DCL  CHAR6        CHAR(6)            BASED;
+   DCL  CHAR2        CHAR(2)            BASED;
+   DCL  CHAR4        CHAR(4)            BASED;
+   DCL  BIT1         BIT       (  1  )  BASED;
+
+   DCL  1 STR_3                             BASED,
+          2 C10_1_3 CHAR(10),
+          2 C02_1_3 CHAR(02),
+          2 C01_1_3 CHAR,
+          2 C02_2_3 CHAR(02);
+
+   DCL  1 STR_4                             BASED,
+          2 F053    BIN FLOAT (   53)                                ;
+
+   /* ADD. VARIABLES DECLARED FOR UNIDRV01 */
+   DCL  EXCEPT_DIGIT FIXED DEC(15,0)     INIT(0);
+   dcl p_temp         ptr static;
+   dcl q_temp         ptr static;
+   dcl p_next         ptr static;
+   dcl q_next         ptr static;
+   dcl p_actu         ptr static;
+   dcl p_acte         ptr static;
+   dcl q_actu         ptr static;
+   dcl p              ptr static;
+   dcl pl             ptr static;
+   dcl pm             ptr static;
+   dcl pd             ptr static;
+   dcl pa_anch        ptr static;
+   dcl pe_anch        ptr static;
+
+   DCL  PIC_LXXXIDX  PIC      '(15)9'       INIT(0) ;
+   DCL  PIC_LDBSOSN  PIC      '(9)9'        INIT(0) ;
+ /*-------------------------------------------------------------------*/
+ /*  PROGRAM LOGIC STARTS:                                            */
+ /*-------------------------------------------------------------------*/
+
+   SELECT(PRC_NAM);
+   /*--------------------------------------------------------------*/
+      WHEN('DATEADD      ')
+   /*--------------------------------------------------------------*/
+         OP1->D06_1 = DATEADD(IP1->D06_1,IP2->D03_1,IP3->C01_1);
+   /*--------------------------------------------------------------*/
+      WHEN('DB2_ADD      ')
+   /*--------------------------------------------------------------*/
+         OP1->C10_1 = DB2_ADD(IP1->C10_1,IP2->D03_1,IP3->C01_1);
+   /*--------------------------------------------------------------*/
+      WHEN('DATESUB      ')
+   /*--------------------------------------------------------------*/
+         OP1->D06_1 = DATESUB(IP1->D06_1,IP2->D03_1,IP3->C01_1);
+   /*--------------------------------------------------------------*/
+      WHEN('DB2_SUB      ')
+   /*--------------------------------------------------------------*/
+         OP1->C10_1 = DB2_SUB(IP1->C10_1,IP2->D03_1,IP3->C01_1);
+   /*--------------------------------------------------------------*/
+      WHEN('DATECHK      ')
+   /*--------------------------------------------------------------*/
+         OP1->B15_1 = DATECHK(IP1->C06_1) ;
+   /*--------------------------------------------------------------*/
+      WHEN('DAT5DAT6     ')
+   /*--------------------------------------------------------------*/
+         OP1->D06_1 = DAT5DAT6(IP1->D05_1)           ;
+   /*--------------------------------------------------------------*/
+      WHEN('DAT6DAT5     ')
+   /*--------------------------------------------------------------*/
+         OP1->D05_1 = DAT6DAT5(IP1->D06_1)           ;
+   /*--------------------------------------------------------------*/
+      WHEN('DAT6DAT7     ')
+   /*--------------------------------------------------------------*/
+         OP1->D07_1 = DAT6DAT7(IP1->D06_1)           ;
+   /*--------------------------------------------------------------*/
+      WHEN('DAY          ')
+   /*--------------------------------------------------------------*/
+         OP1->D02_1 = DAY(IP1->D06_1)                ;
+   /*--------------------------------------------------------------*/
+      WHEN('MONTH        ')
+   /*--------------------------------------------------------------*/
+         OP1->D02_1 = MONTH(IP1->D06_1)              ;
+   /*--------------------------------------------------------------*/
+      WHEN('YEAR         ')
+   /*--------------------------------------------------------------*/
+         OP1->D02_1 = YEAR(IP1->D06_1)               ;
+   /*--------------------------------------------------------------*/
+      WHEN('DAYS_OF_MONTH')
+   /*--------------------------------------------------------------*/
+         OP1->D02_1 = DAYS_OF_MONTH(IP1->D06_1)      ;
+   /*--------------------------------------------------------------*/
+      WHEN('DAY_OF_WEEK  ')
+   /*--------------------------------------------------------------*/
+         OP1->C05_1 = DAY_OF_WEEK(IP1->C06_1)        ;
+   /*--------------------------------------------------------------*/
+      WHEN('CLC_MONTH    ')
+   /*--------------------------------------------------------------*/
+         OP1->D03_1 = CLC_MONTH(IP1->D06_1,IP2->D06_1)    ;
+   /*--------------------------------------------------------------*/
+      WHEN('CLC_DAYS     ')
+   /*--------------------------------------------------------------*/
+         OP1->D05_1 = CLC_DAYS(IP1->C10_1,IP2->C10_1)     ;
+   /*--------------------------------------------------------------*/
+      WHEN('CLC_DAYS_30  ')
+   /*--------------------------------------------------------------*/
+         OP1->D05_1 = CLC_DAYS_30(IP1->C10_1,IP2->C10_1)  ;
+   /*--------------------------------------------------------------*/
+      WHEN('DEC5_TO_DB2  ')
+   /*--------------------------------------------------------------*/
+         OP1->C10_1 = DEC5_TO_DB2(IP1->D05_1);
+   /*--------------------------------------------------------------*/
+      WHEN('DEC6_TO_DB2  ')
+   /*--------------------------------------------------------------*/
+         OP1->C10_1 = DEC6_TO_DB2(IP1->D06_1);
+   /*--------------------------------------------------------------*/
+      WHEN('CHR6_TO_DB2  ')
+   /*--------------------------------------------------------------*/
+         OP1->C10_1 = CHR6_TO_DB2(IP1->C06_1);
+   /*--------------------------------------------------------------*/
+      WHEN('CHR10_TO_DB2 ')
+   /*--------------------------------------------------------------*/
+         OP1->C10_1 = CHR10_TO_DB2(IP1->C10_1);
+   /*--------------------------------------------------------------*/
+      WHEN('DB2_TO_CHR10 ')
+   /*--------------------------------------------------------------*/
+         OP1->C10_1 = DB2_TO_CHR10(IP1->C10_1);
+   /*--------------------------------------------------------------*/
+      WHEN('DB2_TO_DEC5  ')
+   /*--------------------------------------------------------------*/
+         OP1->D05_1 = DB2_TO_DEC5(IP1->C10_1);
+   /*--------------------------------------------------------------*/
+      WHEN('DB2_TO_DEC6  ')
+   /*--------------------------------------------------------------*/
+         OP1->D06_1 = DB2_TO_DEC6(IP1->C10_1);
+   /*--------------------------------------------------------------*/
+      WHEN('DB2_TO_CHR6  ')
+   /*--------------------------------------------------------------*/
+         OP1->C06_1 = DB2_TO_CHR6(IP1->C10_1);
+   /*--------------------------------------------------------------*/
+      WHEN('TIMEADD      ')
+   /*--------------------------------------------------------------*/
+         OP1->C06_1 = TIMEADD(IP1->C06_1,IP2->C06_1);
+   /*--------------------------------------------------------------*/
+      WHEN('DEC9_TO_DB2  ')
+   /*--------------------------------------------------------------*/
+         OP1->C08_1 = DEC9_TO_DB2(IP1->D09_1);
+   /*--------------------------------------------------------------*/
+      WHEN('CHR9_TO_DB2  ')
+   /*--------------------------------------------------------------*/
+         OP1->C08_1 = CHR9_TO_DB2(IP1->C09_1);
+   /*--------------------------------------------------------------*/
+      WHEN('CHR8_TO_DB2  ')
+   /*--------------------------------------------------------------*/
+         OP1->C08_1 = CHR8_TO_DB2(IP1->C08_1);
+   /*--------------------------------------------------------------*/
+      WHEN('MAX_DB2_DAT  ')
+   /*--------------------------------------------------------------*/
+         OP1->C10_1 = MAX_DB2_DAT()     ;
+   /*--------------------------------------------------------------*/
+      WHEN('MIN_DB2_DAT   ')
+   /*--------------------------------------------------------------*/
+         OP1->C10_1 = MIN_DB2_DAT()    ;
+   /*--------------------------------------------------------------*/
+      WHEN('MIN_DB2_TMP   ')
+   /*--------------------------------------------------------------*/
+         OP1->C26_1 = MIN_DB2_TMP()    ;
+   /*--------------------------------------------------------------*/
+      WHEN('MAX_DB2_TMP   ')
+   /*--------------------------------------------------------------*/
+         OP1->C26_1 = MAX_DB2_TMP()    ;
+   /*--------------------------------------------------------------*/
+      WHEN('MIN_DB2_TIM   ')
+   /*--------------------------------------------------------------*/
+         OP1->C08_1 = MIN_DB2_TIM()    ;
+   /*--------------------------------------------------------------*/
+      WHEN('RUN_DAT_TMP   ')
+   /*--------------------------------------------------------------*/
+         OP1->C26_1 = RUN_DAT_TMP()    ;
+   /*--------------------------------------------------------------*/
+      WHEN('CUR_DAT_TIM   ')
+   /*--------------------------------------------------------------*/
+         OP1->D15_1 = CUR_DAT_TIM()    ;
+   /*--------------------------------------------------------------*/
+      WHEN('RUN_DAT_TIM   ')
+   /*--------------------------------------------------------------*/
+         OP1->D15_1 = RUN_DAT_TIM()    ;
+   /*--------------------------------------------------------------*/
+      WHEN('UNIQUE_ID     ')
+   /*--------------------------------------------------------------*/
+         OP1->D15_1     = UNIQUE_ID()    ;
+   /*--------------------------------------------------------------*/
+      WHEN('UNIQUE_IR     ')
+   /*--------------------------------------------------------------*/
+         OP1->D15_1     = UNIQUE_IR()    ;
+   /*--------------------------------------------------------------*/
+      WHEN('FLD_FREEZE   ')
+   /*--------------------------------------------------------------*/
+         CALL FLD_FREEZE(IP1->C08_1)        ;
+   /*--------------------------------------------------------------*/
+      WHEN('FLD_HIGHLITE ')
+   /*--------------------------------------------------------------*/
+         CALL FLD_HIGHLITE(IP1->C08_1)        ;
+   /*--------------------------------------------------------------*/
+      WHEN('GET_FLDPTR   ')
+   /*--------------------------------------------------------------*/
+         OP1 = GET_FLDPTR(IP1->C08_1) ;
+   /*--------------------------------------------------------------*/
+      WHEN('GET_MCSPTR   ')
+   /*--------------------------------------------------------------*/
+         OP1 = GET_MCSPTR(IP1->C08_1) ;
+   /*--------------------------------------------------------------*/
+      WHEN('ISU_ERR_MSG  ')
+   /*--------------------------------------------------------------*/
+         CALL ISU_ERR_MSG(IP1->C08_1)       ;
+   /*--------------------------------------------------------------*/
+      WHEN('FLD_FRZALL   ')
+   /*--------------------------------------------------------------*/
+         CALL FLD_FRZALL               ;
+   /*--------------------------------------------------------------*/
+      WHEN('SET_CURSOR   ')
+   /*--------------------------------------------------------------*/
+         CALL SET_CURSOR(IP1->C08_1)        ;
+   /*--------------------------------------------------------------*/
+      WHEN('RND_BEF_AFT  ')
+   /*--------------------------------------------------------------*/
+         OP1->D152_1 = RND_BEF_AFT(IP1->D154_1,IP2->C03_1);
+   /*--------------------------------------------------------------*/
+      WHEN('RND_BEF_AFT_152  ')
+   /*--------------------------------------------------------------*/
+         OP1->D152_1 = RND_BEF_AFT_152(IP1->D152_1,IP2->C03_1);
+   /*--------------------------------------------------------------*/
+      WHEN('PERCENT      ')
+   /*--------------------------------------------------------------*/
+         OP1->D152_1 = PERCENT(IP1->D154_1,IP2->D1512_1,IP3->C04_1);
+   /*--------------------------------------------------------------*/
+      WHEN('PERCENT2     ')
+   /*--------------------------------------------------------------*/
+         OP1->D154_1 = PERCENT2(IP1->D152_1,IP2->D52_1,IP3->D01_1);
+   /*--------------------------------------------------------------*/
+      WHEN('PCT_SUM_ALIGN')
+   /*--------------------------------------------------------------*/
+         OP1->D152_1 = PCT_SUM_ALIGN(IP1->D154_11,IP2->D1512_1,
+                                     IP3->C04_1,
+                                     IP1->D152_12,IP1->D152_13);
+   /*--------------------------------------------------------------*/
+      WHEN('PCT_PCT_ALIGN')
+   /*--------------------------------------------------------------*/
+         OP1->D152_1 = PCT_PCT_ALIGN(IP1->D154_21,IP2->D1512_1,
+                                     IP3->C04_1,
+                                     IP1->D1512_22,IP1->D152_23);
+   /*--------------------------------------------------------------*/
+      WHEN('PRORATE_START')
+   /*--------------------------------------------------------------*/
+         OP1->D06_1 = PRORATE_START(IP1->D06_1);
+   /*--------------------------------------------------------------*/
+      WHEN('PRORATE_STOP ')
+   /*--------------------------------------------------------------*/
+         OP1->D06_1 = PRORATE_STOP(IP1->D06_1) ;
+      WHEN('LOCK_SET     ')
+   /*--------------------------------------------------------------*/
+         OP1->FB31 = LOCK_SET(IP1->C08_1,IP2->CHARVAR,IP3);
+   /*--------------------------------------------------------------*/
+      WHEN('LOCK_TEST    ')
+   /*--------------------------------------------------------------*/
+         OP1->FB31 = LOCK_TEST(IP1->C08_1,IP2->CHARVAR,IP3);
+   /*--------------------------------------------------------------*/
+      WHEN('LOCK_FREE    ')
+   /*--------------------------------------------------------------*/
+         OP1->FB31 = LOCK_FREE(IP1->C08_1,IP2->CHARVAR,IP3);
+   /*--------------------------------------------------------------*/
+      WHEN('FIYALIGN     ')
+   /*--------------------------------------------------------------*/
+         OP1->C10_2 = FIYALIGN(IP1->C02_1,IP2->C10_1,IP3->C02_2);
+   /*--------------------------------------------------------------*/
+      WHEN('CALC_STOP_LTP')
+   /*--------------------------------------------------------------*/
+         OP1->C10_2 = CALC_STOP_LTP(IP1->C10_1_3,
+                                    IP1->C02_1_3,
+                                    IP1->C01_1_3,
+                                    IP1->C02_2_3);
+   /*--------------------------------------------------------------*/
+      WHEN('CALC_STOP_LTT')
+   /*--------------------------------------------------------------*/
+         OP1->C10_2 = CALC_STOP_LTT(IP1->C10_1_3,
+                                    IP1->C02_1_3);
+   /*--------------------------------------------------------------*/
+      WHEN('CLC_VAT_AMOUN')
+   /*--------------------------------------------------------------*/
+         OP1->D152_2 = CLC_VAT_AMOUNT(IP1->D152_1,
+                                      IP2->D63_1,
+                                      IP3->C03_1);
+   /*--------------------------------------------------------------*/
+      WHEN('CLC_CNV_AMOUN')
+   /*--------------------------------------------------------------*/
+         OP1->D152_2 = CLC_CNV_AMOUNT(IP1->D152_1,
+                                      IP2->F053 ,
+                                      IP3->C03_1);
+   /*--------------------------------------------------------------*/
+      WHEN('CHECK_PATTERN')
+   /*--------------------------------------------------------------*/
+         OP1->D15_1  = CHECK_PATTERN(IP1->C01_vtsd,
+                                     IP2->C02_vtsd,
+                                     IP3->C03_vtsd);
+   /*--------------------------------------------------------------*/
+      WHEN('INCREASE_UIR')
+   /*--------------------------------------------------------------*/
+         OP1->D15_2  = INCREASE_UIR(IP1->D15_1);
+   /*--------------------------------------------------------------*/
+      WHEN('AREA_ALLOC   ')
+   /*--------------------------------------------------------------*/
+         op1->P01 = allocate_ara(ip1->C40_1);
+   /*--------------------------------------------------------------*/
+      WHEN('AREA_FREE    ')
+   /*--------------------------------------------------------------*/
+         CALL free_ara(IP1->C40_1);
+   /*--------------------------------------------------------------*/
+      WHEN('AREA4ELEMENT ')
+   /*--------------------------------------------------------------*/
+         op1->p01 = get_area4element(ip1->c40_1,
+                                     ip2->p01  );
+   /*--------------------------------------------------------------*/
+      WHEN('AREA_POINTER ')
+   /*--------------------------------------------------------------*/
+         op1->P01 = get_area_pointr(IP1->C40_1);
+   /*--------------------------------------------------------------*/
+      WHEN('AREA_FREEALL ')
+   /*--------------------------------------------------------------*/
+         CALL free_ara_all;
+   /*--------------------------------------------------------------*/
+      WHEN('LOCLM')
+   /*--------------------------------------------------------------*/
+         op1->D15_1 = lomo(IP1->EV1_1,IP2->C07V_1);
+   /*--------------------------------------------------------------*/
+      WHEN('AREAPINIT')
+   /*--------------------------------------------------------------*/
+         Call Init_Area_Ptrs;
+   /*--------------------------------------------------------------*/
+      WHEN('DATECALC')
+   /*--------------------------------------------------------------*/
+         OP1->C10_1 = DateCalc(IP1->C10_2,
+                                IP2->D15_1,
+                                IP3->C01_1);
+   /*--------------------------------------------------------------*/
+      WHEN('GET_DYNATTRIB') do;
+   /*--------------------------------------------------------------*/
+         CAll get_dynattrib(IP1->p01);
+      end;
+   /*--------------------------------------------------------------*/
+      WHEN('DATEOK')
+   /*--------------------------------------------------------------*/
+         OP1->BIT1  = DateOK(IP1->C10_2);
+   /*--------------------------------------------------------------*/
+      WHEN('ISLEAPYEAR')
+   /*--------------------------------------------------------------*/
+         OP1->BIT1  = isLeapYear(IP1->C10_2);
+   /*--------------------------------------------------------------*/
+      WHEN('MONTHDAYS')
+   /*--------------------------------------------------------------*/
+         OP1->D02_1 = MonthDays(IP1->C10_2);
+   /*--------------------------------------------------------------*/
+      OTHERWISE DO;
+   /*--------------------------------------------------------------*/
+         PSK(PRC_NAM,'NOT FOUND');
+   /*--------------------------------------------------------------*/
+      END;
+   END;
+
+ /* ---------------------------------------------------------------- */
+ /*                                                                  */
+ /* +) Someone   to understand the concept in the driver             */
+ /*                                                                  */
+ /* +) Everyone to understand the hierarchy for each dynamic         */
+ /*    Attribute table.                                              */
+ /*                                                                  */
+ /* +) Everyone to understand the parameters of the macro            */
+ /*                                                                  */
+ /* ---------------------------------------------------------------- */
+ get_dynattrib:PROC (iptrix);
+
+   %include qchdyna;
+
+   psk('Dynamic Styrians .. hereeeeee we go:'!!hex(iptrix));
+   dcl dynamgr external entry;
+   dcl iptrix    ptr;
+
+   DynADef(B,iptrix);
+
+   psk         ('----------------------------------------------');
+   psk         ('tablename     :'!!$õ$_DynAStatic.tablename);
+   psk         ('attributename :'!!$õ$_DynAStatic.attributename);
+   psk         ('p_returncode  :'!!hex($õ$_DynAStatic.p_returncode));
+   psk         ('p_varfields   :'!!hex($õ$_DynAStatic.p_varfields));
+   psk         ('p_returnvalue :'!!hex($õ$_DynAStatic.p_returnvalue));
+   psk         ('----------------------------------------------');
+   psk         ('- Calling Dynamic Attribute Manager          -');
+   psk         ('----------------------------------------------');
+
+   Call DynAMgr(iptrix);
+
+   psk         ('++++++++++++++++++++++++++++++++++++++++++++++');
+   psk         ('+ Returning from Dynamic Attribute Manager   +');
+   psk         ('++++++++++++++++++++++++++++++++++++++++++++++');
+   psk         ('tablename     :'!!$õ$_DynAStatic.tablename);
+   psk         ('attributename :'!!$õ$_DynAStatic.attributename);
+   psk         ('p_returncode  :'!!hex($õ$_DynAStatic.p_returncode));
+   psk         ('p_varfields   :'!!hex($õ$_DynAStatic.p_varfields));
+   psk         ('p_returnvalue :'!!hex($õ$_DynAStatic.p_returnvalue));
+   psk         ('++++++++++++++++++++++++++++++++++++++++++++++');
+
+ END get_dynattrib;
+ /*==================================================================*/
+ /* INCREASE_UIR:   Increases a given key value with the factor of   */
+ /*                 100 to not overlapp new key generation with      */
+ /*                 Exception digit or Region digit !                */
+ /* ---------------------------------------------------------------- */
+ /* CALL INVOCATION: XXX.LXXXIDX = INCREASE_UIR(XXX.LXXXIDX);        */
+ /*==================================================================*/
+ INCREASE_UIR:PROC (Input_key)
+              RETURNS(DEC FIXED(15,0));
+
+ /*  dcl Input_key         bin fixed (15,0); */
+   dcl Input_key           fixed dec (15,0);
+
+   RETURN ( Input_key + 100 );
+
+ END INCREASE_UIR;
+
+ /*==================================================================*/
+ /* CHECK_PATTERN:  CHECKS INPUT FIELDS IF THEY MATCH THE DESINGED   */
+ /*                 PATTERNS                                         */
+ /* CALL INVOCATION: RC = CHECK_PATTERN(INPUT,PATTERN,USE);          */
+ /*==================================================================*/
+ /********************************************************************/
+ /*PATTERN :                                                         */
+ /*X - ALPHANUMERIC                                                  */
+ /*A - ALPHABETIC                                                    */
+ /*N - NUMERIC                                                       */
+ /*(BLANK) - ANY VALUE                                               */
+ /* Other - protected characters, only effective when PatternUsage=P */
+ /*                                                                  */
+ /*PatternUsage:                                                     */
+ /*P - Protected - a character can not be changed.                   */
+ /*M - Mandatory - a character can be changed but can not be blank.  */
+ /*Blank - Unprotected - a character can be changed and can be blank.*/
+ /*                                                                  */
+ /*Add.checks:                                                       */
+ /*All three input parameters must have the same length. If not RC=12*/
+ /*                                                                  */
+ /*Return codes:                                                     */
+ /*If everything is OK then RC=0                                     */
+ /*If InputField does not match Pattern then RC=1                    */
+ /*If other error (e.g. input params length not equal) then RC=12    */
+ /*               (e.g. CTL.BILCUSEXT_PAT   not legal) then RC=12    */
+ /********************************************************************/
+ CHECK_PATTERN:PROC (INPUTFIELD
+                    ,PATTERN
+                    ,PATTERNUSAGE) RETURNS(DEC FIXED(15,0));
+
+
+
+   dcl InputField        char(*) ;
+   dcl Pattern           char(*) ;
+   dcl PatternUsage      char(*) ;
+
+   PSK('CHK_PATTERN_INP:'!!INPUTFIELD);
+   PSK('CHK_PATTERN_PAT:'!!PATTERN);
+   PSK('CHK_PATTERN_USE:'!!PATTERNUSAGE);
+
+   dcl RC_CHECK_PATTERN  bin fixed (15,0) init(0);
+   DCL I                 BIN FIXED (15,0) INIT(0) AUTO;
+   DCL NUMERIC_LIST      CHAR(10) INIT('1234567890');
+   DCL ALPHABETIC_LIST   CHAR(26) INIT('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+   DCL ALPHANUMERIC_LIST CHAR(36)
+                         INIT('ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890');
+
+   RC_CHECK_PATTERN = 0;
+   I                = 0;
+
+   /* parameters' length check                             */
+   if ( length(InputField) = length(Pattern)
+      & length(InputField) = length(PatternUsage))
+   then ;
+   ELSE
+     RETURN (12);
+
+   /*Loop through the length of the InputField & check every char*/
+
+   do i = 1 to length(InputField);
+
+      select ( substr(PatternUsage, i, 1) );
+
+        /*********************************************/
+        /*Protected - a character can not be changed */
+        /*********************************************/
+        when ('P') do;
+          IF ( SUBSTR(INPUTFIELD,I,1) ^= SUBSTR(PATTERN,I,1) ) THEN do;
+            RC_CHECK_PATTERN = 1;
+          end;
+        end;
+
+        /*********************************************/
+        /*Mandatory - can be changed but not a blank */
+        /*********************************************/
+        when ('M') do;
+           IF ( SUBSTR(INPUTFIELD, I, 1) = ' ') THEN DO;
+              RC_CHECK_PATTERN = 1;
+           end;
+           else do;
+             SELECT ( SUBSTR(PATTERN, I, 1) );
+               WHEN ('N') DO;
+                 IF VERIFY(SUBSTR(INPUTFIELD, I, 1), NUMERIC_LIST) ^= 0
+                 then do;
+                    RC_CHECK_PATTERN = 1;
+                 end;
+               END;
+               WHEN ('A') DO;
+                 IF VERIFY(SUBSTR(INPUTFIELD,I,1),ALPHABETIC_LIST) ^= 0
+                 then do;
+                    RC_CHECK_PATTERN = 1;
+                 end;
+               END;
+               WHEN ('X') DO;
+                IF VERIFY(SUBSTR(INPUTFIELD,I,1),ALPHANUMERIC_LIST)^=0
+                THEN DO;
+                    RC_CHECK_PATTERN = 1;
+                END;
+               END;
+               WHEN (' ') DO;
+                 ;
+               END;
+               OTHERWISE  DO;
+                 /*The CTL.Bilcusext_pat is filled wrongly*/
+                 RC_CHECK_PATTERN = 12;
+               END;
+             END; /* END OF SELECT PATTERN */
+           end; /* end of else InputField is blank */
+        end; /* end of when Pattern_Usage = M */
+
+        /*********************************************/
+        /*Unprotected - can be changed & can be blank*/
+        when (' ') do;
+           select ( substr(Pattern, i, 1) );
+              when ('N') do;
+                IF VERIFY(SUBSTR(INPUTFIELD, I, 1), NUMERIC_LIST) ^= 0
+                THEN DO;
+                  RC_CHECK_PATTERN = 1;
+                END;
+              end;
+              when ('A') do;
+                IF VERIFY(SUBSTR(INPUTFIELD,I,1),ALPHABETIC_LIST) ^= 0
+                then do;
+                  RC_CHECK_PATTERN = 1;
+                END;
+              end;
+              when ('X') do;
+                IF VERIFY(SUBSTR(INPUTFIELD,I,1),ALPHANUMERIC_LIST)^=0
+                THEN DO;
+                  RC_CHECK_PATTERN = 1;
+                END;
+              end;
+              when (' ') do;
+                 ;
+              end;
+              otherwise  do;
+                 /*The CTL.Bilcusext_pat is filled wrongly*/
+                 RC_CHECK_PATTERN = 12;
+              end;
+           end; /* end of select Pattern */
+        end; /* end of when Pattern_Usage = ' ' */
+
+        /*********************************************/
+        /*The CTL.Bilcusext_pat_use is filled wrongly*/
+        otherwise  do;
+           RC_CHECK_PATTERN = 12;
+        end;
+      end; /* end of select PatternUsage */
+
+      if (RC_CHECK_PATTERN > 0) then
+         leave;
+
+   end; /* end of do loop to check every char */
+
+   RETURN ( RC_CHECK_PATTERN );
+
+ END CHECK_PATTERN;
+
+ /*==================================================================*/
+ /* CLC_VAT_AMOUNT: CALCULATES THE VAT AMOUNT ON A BASE AND A        */
+ /*                 PERCENTAGE GIVEN, IN RECOGNITION OF THE ROUNDING */
+ /*                 RULES GIVEN AS INPUT PARAMETER.                  */
+ /* CALL INVOCATION: VATAMOUNT = CLC_VAT_AMOUNT(AMOUNT,PERCENTAGE,   */
+ /*                                             ROUNDINGRULES);      */
+ /*==================================================================*/
+ CLC_VAT_AMOUNT:PROC (P_AMT_BASE
+                     ,P_PCT_VATRATE
+                     ,P_CTY_ROUNDINGRULES) RETURNS(DEC FIXED(15,2));
+
+   DCL P_AMT_BASE          DECIMAL FIXED(15,2);
+   DCL P_PCT_VATRATE       DECIMAL FIXED( 6,3);
+   DCL P_CTY_ROUNDINGRULES CHAR( 3);
+   /*
+   PSK('CLC_VAT:>>AMT_BASE:'!!P_AMT_BASE);
+   PSK('CLC_VAT:>>PCT_VATR:'!!P_PCT_VATRATE);
+   PSK('CLC_VAT:>>CTY_RNDR:'!!P_CTY_ROUNDINGRULES);
+   */
+   DCL V_AMT_INCLVAT   DEC FIXED(15,2) AUTO;
+   DCL V_VATRATE       DEC FIXED(8,5)  AUTO INIT(0);
+
+   V_VATRATE = 1 + ( P_PCT_VATRATE / 100 );
+
+   PSK('V_VATRATE  =', V_VATRATE);
+
+   V_AMT_INCLVAT= MULTIPLY(P_AMT_BASE,V_VATRATE,15,2);
+
+   /*V_AMT_INCLVAT = P_AMT_BASE * V_VATRATE;*/
+
+   PSK('V_AMT_INCLVAT after   =', V_AMT_INCLVAT);
+
+   V_AMT_INCLVAT = RND_BEF_AFT ( V_AMT_INCLVAT , P_CTY_ROUNDINGRULES);
+
+   RETURN (V_AMT_INCLVAT);
+
+ END CLC_VAT_AMOUNT;
+
+ /*==================================================================*/
+ /* CLC_CNV_AMOUNT: CALCULATES A CONVERTED AMOUNT OF A GIVEN AMOUNT  */
+ /*                 ACCORDING TO A CONVERSION RATE AND ROUNDING      */
+ /*                 RULES GIVEN AS INPUT PARAMETERS.                 */
+ /* CALL INVOCATION: CNVAMOUNT = CLC_CNV_AMOUNT(AMOUNT,PERCENTAGE,   */
+ /*                  ROUNDINGRULES);                                 */
+ /*==================================================================*/
+ CLC_CNV_AMOUNT:PROC (P_AMT_BASE
+                     ,P_PCT_CCYRATE
+                     ,P_CTY_ROUNDINGRULES) RETURNS(DEC FIXED(15,2));
+
+   DCL P_AMT_BASE DECIMAL  FIXED(15,2);
+   DCL P_PCT_CCYRATE BIN   FLOAT(  53);
+   DCL P_CTY_ROUNDINGRULES CHAR (   3);
+
+   DCL F_CNV_AMOUNT DEC FLOAT(16)   AUTO;
+   DCL V_CNV_AMOUNT DEC FIXED(15,2) AUTO;
+   DCL V_CNVAMT_RND DEC FIXED(15,2) AUTO;
+
+   F_CNV_AMOUNT = P_AMT_BASE / P_PCT_CCYRATE;
+   F_CNV_AMOUNT = F_CNV_AMOUNT + 0.005; /* rounding simulation */
+   V_CNV_AMOUNT = F_CNV_AMOUNT;
+   V_CNVAMT_RND = RND_BEF_AFT_152 ( V_CNV_AMOUNT , P_CTY_ROUNDINGRULES);
+
+   RETURN (V_CNVAMT_RND);
+
+ END CLC_CNV_AMOUNT;
+
+
+ /*==================================================================*/
+ /* CALC_STOP_LTP: CALCULATES THE CONTRACT/TERM END DATE             */
+ /*                (MINIMUM TERM END DATE)                           */
+ /* CALL INVOCATION: CON.DAGRVEX = CALC_STOP_LTP(DAGRCAS,            */
+ /*                                              QAGRLTP,            */
+ /*                                              CTOCLTP,            */
+ /*                                              CFIYEMT);           */
+ /*                                                                  */
+ /*                                                                  */
+ /* PARAMETERS:                                                      */
+ /*            DAGRCAS: CONTRACT/TERM START DATE, DB2-DATE CHAR(10)  */
+ /*            QAGRLTP: CONTRACT/TERM PERIOS, CHAR(2) .. TFD TABLE   */
+ /*            CTOCLTP: 'M' MONTH OR 'Y' YEAR INDICATOR CHAR(1)      */
+ /*            CFIYEMT: FISCAL YEAR END MONTH, CHAR(2)               */
+ /*==================================================================*/
+ CALC_STOP_LTP: PROC ( CON_DAGRCAS,
+                       CON_QAGRLTP,
+                       CON_CTOCLTP,
+                       CON_CFIYEMT ) RETURNS(CHAR(10));
+
+   DCL CON_DAGRCAS        CHAR( 10 );
+   DCL CON_QAGRLTP        CHAR(  2 );
+   DCL CON_CTOCLTP        CHAR(  1 );
+   DCL CON_CFIYEMT        CHAR(  2 );
+
+   DCL CON_DAGRVEX        CHAR( 10 )  INIT(' ')  AUTO;
+   DCL PIC_QAGRLTP        PIC '99'    BASED(ADDR(CON_QAGRLTP));
+   DCL DEC_QAGRLTP        FIXED(3,0)  INIT(0)    AUTO;
+   DCL DEC_DAGRCAS        FIXED(6,0)  INIT(0)    AUTO;
+   DCL DEC_DAGRVEX        FIXED(6,0)  INIT(0)    AUTO;
+
+   PSK('CALC_LTP->DAGRCAS:',CON_DAGRCAS);
+   PSK('CALC_LTP->QAGRLTP:',CON_QAGRLTP);
+   PSK('CALC_LTP->CTOCLTP:',CON_CTOCLTP);
+   PSK('CALC_LTP->CFIYEMT:',CON_CFIYEMT);
+
+   DEC_QAGRLTP = PIC_QAGRLTP;
+
+   IF CON_QAGRLTP = '99' THEN
+     RETURN(MAX_DB2_DAT);
+
+   DEC_QAGRLTP = PIC_QAGRLTP;
+   DEC_DAGRCAS = DB2_TO_DEC6(CON_DAGRCAS);
+
+   IF DEC_QAGRLTP ^= 0
+      & DEC_DAGRCAS ^= 0 THEN DO;
+      IF DEC_QAGRLTP = 99 THEN
+         CON_DAGRVEX = MAX_DB2_DAT();
+      ELSE DO;
+         DEC_DAGRVEX = DATEADD(DEC_DAGRCAS,
+                             DEC_QAGRLTP,CON_CTOCLTP);
+         DEC_DAGRVEX = DATESUB(DEC_DAGRVEX,1,'D');
+         CON_DAGRVEX = DEC6_TO_DB2(DEC_DAGRVEX);
+         IF CON_CFIYEMT ^= '  '
+          & CON_CFIYEMT ^= '00' THEN DO;
+           PSK('CON-VEX + FISCAL YEAR ALIGNMENT');
+           CON_DAGRVEX = FIYALIGN(CON_CFIYEMT,
+                                  CON_DAGRCAS,
+                                  CON_QAGRLTP);
+         END;
+      END;
+   END;
+
+   PSK('CONTRACT STOP DATE CALCULATED: ',CON_DAGRVEX);
+   RETURN(CON_DAGRVEX);
+
+ END CALC_STOP_LTP;
+ /*==================================================================*/
+ /* CALC_STOP_LTT: CALCULATES THE MAXIMUM TERM END DATE              */
+ /*                ONLY POSSIBLE WHEN TFD.CTOCLTP = 'M' MONTHS       */
+ /*                                                                  */
+ /* CALL INVOCATION: CON.DAGRVEX = CALC_STOP_LTP(DAGRCAS,            */
+ /*                                              QAGRLTP)            */
+ /*                                                                  */
+ /* PARAMETERS:                                                      */
+ /*            DAGRCAS: CONTRACT/TERM START DATE, DB2-DATE CHAR(10)  */
+ /*            QAGRLTP: CONTRACT/TERM PERIOS, CHAR(2) .. TFD TABLE   */
+ /*==================================================================*/
+ CALC_STOP_LTT: PROC ( CON_DAGRCAS,
+                       TFD_QAGRLTT ) RETURNS(CHAR(10));
+
+   DCL CON_DAGRCAS        CHAR( 10 );
+   DCL TFD_QAGRLTT        CHAR(  2 );
+
+   DCL COT_DAGRVEX        CHAR( 10 )  INIT(' ')  AUTO;
+   DCL PIC_QAGRLTT        PIC '99'    BASED(ADDR(TFD_QAGRLTT));
+   DCL DEC_QAGRLTT        FIXED(3,0)  INIT(0)    AUTO;
+   DCL DEC_DAGRCAS        FIXED(6,0)  INIT(0)    AUTO;
+   DCL DEC_DAGRVEX        FIXED(6,0)  INIT(0)    AUTO;
+
+
+   PSK('CALC_LTT->DAGRCAS:',CON_DAGRCAS);
+   PSK('CALC_LTT->QAGRLTT:',DEC_QAGRLTT);
+   IF TFD_QAGRLTT ^= '  ' THEN DO;
+     DEC_QAGRLTT = PIC_QAGRLTT + 1;
+     DEC_DAGRCAS = DB2_TO_DEC6(CON_DAGRCAS);
+
+     IF DEC_QAGRLTT ^= 0
+      & DEC_DAGRCAS ^= 0 THEN DO;
+         DEC_DAGRVEX = DATEADD(DEC_DAGRCAS,
+                               DEC_QAGRLTT,'M');
+         DEC_DAGRVEX = DATESUB(DEC_DAGRVEX,1,'D');
+         COT_DAGRVEX = DEC6_TO_DB2(DEC_DAGRVEX);
+     END;
+     PSK('MAX.TERM END-DATE CALCULATED: ',COT_DAGRVEX);
+   END;
+   RETURN(COT_DAGRVEX);
+ END CALC_STOP_LTT;
+ FIYALIGN:PROC (CON_CFIYEMT,CON_DAGRCAS,CON_QAGRLTP) RETURNS(CHAR(10));
+
+   DCL CON_CFIYEMT        CHAR(  2 );
+   DCL CON_DAGRCAS        CHAR( 10 );
+   DCL CON_QAGRLTP        CHAR(  2 );
+   DCL PIC_QAGRLTP        PIC '99'    BASED(ADDR(CON_QAGRLTP));
+
+   DCL CHR_YEARSTR        CHAR( 10 )  INIT(' ')  AUTO;
+   DCL CHR_DAGRXXX        CHAR( 10 )  INIT(' ')  AUTO;
+   DCL CHR_YEARS17        CHAR( 07 )  DEF(CHR_YEARSTR);
+   DCL CON_DAGRC17        CHAR( 07 )  DEF(CON_DAGRCAS);
+   PSK('CFIYEMT:',CON_CFIYEMT);
+   PSK('DAGRCAS:',CON_DAGRCAS);
+   PSK('QAGRLTP:',CON_QAGRLTP);
+
+   CHR_YEARSTR = SUBSTR (CON_DAGRCAS,1,5) !!
+                         CON_CFIYEMT      !! '-01';
+   CHR_YEARSTR = DB2_ADD(CHR_YEARSTR, 1, 'M');
+   PSK('FISCAL YEAR START:',CHR_YEARSTR);
+
+   /*---------------------------------------------------*/
+   /* ALIGN BILLING PERIOD TO CUSTOMER FISCAL YEAR      */
+   /*---------------------------------------------------*/
+   IF CON_DAGRC17 = CHR_YEARS17 THEN DO;
+          IF SUBSTR(CON_DAGRCAS,9,2) = '01' THEN DO;
+             CHR_DAGRXXX = DB2_ADD(CON_DAGRCAS,PIC_QAGRLTP,'M');
+             PSK('CONTRACT START DATE  == FISCAL YEAR START DATE  ');
+          END;
+          ELSE DO;
+             CHR_YEARSTR = DB2_ADD(CHR_YEARSTR, 1, 'Y');
+             CHR_DAGRXXX = DB2_ADD(CHR_YEARSTR,PIC_QAGRLTP,'M');
+             PSK('CONTRACT START MONTH == FISCAL YEAR START MONTH ');
+          END;
+   END;
+   ELSE
+   IF SUBSTR(CON_DAGRCAS,6,5) = '01-01'
+          & DB2_ADD(CON_DAGRCAS, 12,'M') = CHR_YEARSTR
+          & CON_CFIYEMT = '12' THEN DO;
+          CHR_DAGRXXX = DB2_ADD(CON_DAGRCAS,PIC_QAGRLTP,'M');
+          PSK('CONTRACT START MONTH == FISCAL YEAR START MONTH ');
+   END;
+   ELSE
+   IF CON_DAGRC17 < CHR_YEARS17 THEN DO;
+      CHR_DAGRXXX = DB2_ADD(CHR_YEARSTR,PIC_QAGRLTP,'M');
+      PSK('CONTRACT START MONTH <  FISCAL YEAR START MONTH ');
+   END;
+   ELSE
+   IF CON_DAGRC17 > CHR_YEARS17 THEN DO;
+      CHR_YEARSTR = DB2_ADD(CHR_YEARSTR, 1, 'Y');
+      CHR_DAGRXXX = DB2_ADD(CHR_YEARSTR,PIC_QAGRLTP,'M');
+      PSK('CONTRACT START MONTH >  FISCAL YEAR START MONTH ');
+   END;
+
+   CHR_DAGRXXX = DB2_SUB(CHR_DAGRXXX,1,'D');
+   PSK('*CHR_DAGRXXX:',CHR_DAGRXXX);
+   RETURN(CHR_DAGRXXX);
+ END FIYALIGN;
+ /*==================================================================*/
+ /* DATEADD: ADD UP DAYS/MONTHS/YEARS TO A DECIMAL(6) DATE FIELD     */
+ /*                                                                  */
+ /*          CALL OF DATEADD:  DATENEW = DATEADD(DATEOLD,NR,IND)     */
+ /*                                                                  */
+ /*               DATENEW/DATEOLD ... DATE FIELDS DECIMAL(6), YYMMDD */
+ /*               NR              ... NUMBER DECIMAL(3)              */
+ /*               IND             ... INDICATOR CHAR(1)              */
+ /*                                   D ... ADD DAYS                 */
+ /*                                   M ... ADD MONTHS               */
+ /*                                   Y ... ADD YEARS                */
+ /*==================================================================*/
+
+ DATEADD:PROC (DEC_YYMMDD,AMOUNT,IND) RETURNS(DEC FIXED(6));
+
+   DCL  DEC_YYMMDD   DEC FIXED (  6  )                               ;
+   DCL  AMOUNT       DEC FIXED (  3  )                               ;
+   DCL  IND          CHAR      (  1  )                               ;
+
+   DCL  PIC_YYMMDD   PIC       '999999'     DEF CHR_YYMMDD           ;
+   DCL  CHR_YYMMDD   CHAR      (  6  )      INIT(' ')                ;
+   DCL  DEC_YYYYDDD  DEC FIXED (  7  )      INIT(0)                  ;
+   DCL  ID2          CHAR      (  2  )      INIT(' ')                ;
+   DCL  UFLAG        BIT       (  1  )      INIT('0'B)               ;
+
+   IF INDEX('DMY',IND) = 0 THEN DO;
+      PSK(REPEAT('#',80));
+      PSK('INVALID PARM FOR DATEADD:');
+      PSK('CFL-NAME            = ',SUBSTR(SPA.CFLK1,4,30));
+      PSK('MEMBER-NAME         = ',SPA.RULE_NAME);
+      PSK('WHEN-CLAUSE         = ',SUBSTR(SPA.PARM1,4,7));
+      PSK('INDICATOR SPECIFIED = ',IND);
+      PSK('SIGNAL ERROR RAISED');
+      PSK(REPEAT('#',80));
+      SIGNAL ERROR;
+   END;
+
+   IF DEC_YYMMDD = 0
+   !  DEC_YYMMDD = 999999 THEN DO;
+      PSK(REPEAT('#',80));
+      PSK('INVALID DATE FOR DATEADD:');
+      PSK('CFL-NAME      = ',SUBSTR(SPA.CFLK1,4,30));
+      PSK('MEMBER-NAME   = ',SPA.RULE_NAME);
+      PSK('WHEN-CLAUSE   = ',SUBSTR(SPA.PARM1,4,7));
+      PSK('DATE SUPPLIED = ',DEC_YYMMDD);
+      RETURN(DEC_YYMMDD);
+   END;
+
+   PIC_YYMMDD  = DEC_YYMMDD;
+   DEC_YYYYDDD = RFBZDCM(RFBZDKM(CHR_YYMMDD));
+
+   ID2  = IND !! '+';
+   CALL RFBZDMM(UFLAG,DEC_YYYYDDD,AMOUNT,ID2);
+
+   IF UFLAG THEN DO;
+     uPSK(REPEAT('#-',40));
+     uPSK('INVALID DATE FOR DATEADD:');
+     uPSK(' CFL-NAME      = ',SUBSTR(SPA.CFLK1,4,30));
+     uPSK(' MEMBER-NAME   = ',SPA.RULE_NAME);
+     uPSK(' WHEN-CLAUSE   = ',SUBSTR(SPA.PARM1,4,7));
+     uPSK(' DATE SUPPLIED = ',DEC_YYMMDD);
+     uPSK(' EOP, Rollback and mandatory 000 notifier issued');
+     uPSK(REPEAT('#-',40));
+
+    /* GHA 20110114 start */
+    /*SIGNAL ERROR; */
+
+      pic_ldbsosn = cct.ldbsosn;
+      pic_lxxxidx = LIO.ID;
+
+      Call CreateNotifier
+         ( $$USPAPTR
+          ,0                               /* always 0     */
+          ,'   000'                        /* Message No   */
+          ,'M'                             /* severity     */
+          ,' '                             /* blank        */
+          ,'Unsupported service end date on LDBSOSN:'
+           !!pic_ldbsosn                   /* Parameter 1  */
+          ,'Contact Help Desk'             /* Parameter 2  */
+          ,SUBSTR(SPA.CFLK1,4,30)          /* Parameter 3  */
+          ,SPA.RULE_NAME                   /* Parameter 4  */
+          ,SUBSTR(SPA.PARM1,4,7)           /* Parameter 5  */
+          ,'input date:'!!CHR_YYMMDD       /* Parameter 6  */
+          ,'cct.ldbsosn:'!!pic_ldbsosn     /* Parameter 7  */
+          ,'lio.cxidsrc:'!!LIO.CXIDSRC     /* Parameter 8  */
+          ,'lio.id:'!!pic_LXXXIDX          /* Parameter 9  */
+          ,prc_nam                         /* Parameter 10 */
+          ,'Spa.prev_screen:'!!SPA.PREV_SCREEN /* Process  */
+          ,Con.iopucty                     /* Con Cty      */
+          ,Con.iagrcid                     /* Con Iagrcid  */
+          ,' '                             /* Cct seq no   */
+          ,'999'                           /* UID Cty      */
+          ,CON.IUSRIDR                     /* UID UserId   */
+          ,' '                             /* RBOXC        */
+          ,' '                             /* RBOXS        */
+          ,' '                             /* HWX Cty      */
+          ,0                               /* HWX Id       */
+          ,' '                             /* HWX SourceId */
+         );
+
+          if SPA.QCHSQLCD ^= 0 then do;
+            uPSK(' wrong SQL insert Notifier DATEADD:'
+                ,SPA.QCHSQLCD);
+          end;
+
+          if spa.run_mode = 'G' then
+            API_BLOCK.RETCODE = APIRC_SQL_ERROR;
+
+          if spa.run_mode = 'M' then
+            spa.eod_from_rule = '1'B;
+          else do;
+            SPA.ROLB_REQU     = '1'B;
+            SPA.EOP_FROM_RULE = '1'B;
+            end;
+
+            RETURN(PIC_YYMMDD);
+          /* GHA 20110114 end   */
+   END;
+
+   CHR_YYMMDD = RFBZDPM(RFBZDRM(DEC_YYYYDDD));
+
+   RETURN(PIC_YYMMDD);
+
+ END DATEADD;
+
+ /*==================================================================*/
+ /* DB2_ADD: ADD UP DAYS/MONTHS/YEARS TO A CHAR(10) DB2 DATE FIELD   */
+ /*                                                                  */
+ /*          CALL OF DB2_ADD:  DATENEW = DATEADD(DATEOLD,NR,IND)     */
+ /*                                                                  */
+ /*               DATENEW/DATEOLD ... DATE FIELDS CHAR(10) YYYY-MM-DD*/
+ /*               NR              ... NUMBER DECIMAL(3)              */
+ /*               IND             ... INDICATOR CHAR(1)              */
+ /*                                   D ... ADD DAYS                 */
+ /*                                   M ... ADD MONTHS               */
+ /*                                   Y ... ADD YEARS                */
+ /*==================================================================*/
+
+ DB2_ADD:PROC (CHR_DB2_DAT,AMOUNT,IND) RETURNS(CHAR(10));
+
+   DCL  CHR_DB2_DAT  CHAR      ( 10  )                               ;
+   DCL  AMOUNT       DEC FIXED (  3  )                               ;
+   DCL  IND          CHAR      (  1  )                               ;
+
+   DCL  DEC_YYMMDD   DEC FIXED (  6  )                               ;
+
+   IF CHR_DB2_DAT = MAX_DB2_DAT()
+   !  CHR_DB2_DAT = MIN_DB2_DAT() THEN DO;
+      PSK(REPEAT('#',80));
+      PSK('INVALID DATE FOR DB2_ADD:');
+      PSK('CFL-NAME       = ',SUBSTR(SPA.CFLK1,4,30));
+      PSK('MEMBER-NAME    = ',SPA.RULE_NAME);
+      PSK('WHEN-CLAUSE    = ',SUBSTR(SPA.PARM1,4,7));
+      PSK('DATE SPECIFIED = ',CHR_DB2_DAT);
+      PSK(REPEAT('#',80));
+      RETURN(CHR_DB2_DAT);
+   END;
+
+   DEC_YYMMDD  = DATEADD(DB2_TO_DEC6(CHR_DB2_DAT),AMOUNT,IND);
+   RETURN(DEC6_TO_DB2(DEC_YYMMDD));
+
+ END DB2_ADD;
+
+ /*==================================================================*/
+ /* DATESUB: SUBTRACT DAYS/MONTHS/YEARS FROM A DECIMAL(6) DATE FIELD */
+ /*                                                                  */
+ /*          CALL OF DATESUB:  DATENEW = DATESUB(DATEOLD,NR,IND)     */
+ /*                                                                  */
+ /*               DATENEW/DATEOLD ... DATE FIELDS DECIMAL(6), YYMMDD */
+ /*               NR              ... NUMBER DECIMAL(3)              */
+ /*               IND             ... INDICATOR CHAR(1)              */
+ /*                                   D ... ADD DAYS                 */
+ /*                                   M ... ADD MONTHS               */
+ /*                                   Y ... ADD YEARS                */
+ /*==================================================================*/
+
+ DATESUB:PROC (DEC_YYMMDD,AMOUNT,IND) RETURNS(DEC FIXED(6));
+
+   DCL  DEC_YYMMDD   DEC FIXED (  6  )                               ;
+   DCL  AMOUNT       DEC FIXED (  3  )                               ;
+   DCL  IND          CHAR      (  1  )                               ;
+
+   DCL  PIC_YYMMDD   PIC       '999999'     DEF CHR_YYMMDD           ;
+   DCL  CHR_YYMMDD   CHAR      (  6  )      INIT(' ')                ;
+   DCL  CHR_DDMMYY   CHAR      (  6  )      INIT(' ')                ;
+   DCL  DEC_YYYYDDD  DEC FIXED (  7  )      INIT(0)                  ;
+   DCL  ID2          CHAR      (  2  )      INIT(' ')                ;
+   DCL  UFLAG        BIT       (  1  )      INIT('0'B)               ;
+
+   IF INDEX('DMY',IND) = 0 THEN DO;
+      PSK(REPEAT('#',80));
+      PSK('INVALID PARM FOR DATESUB:');
+      PSK('CFL-NAME            = ',SUBSTR(SPA.CFLK1,4,30));
+      PSK('MEMBER-NAME         = ',SPA.RULE_NAME);
+      PSK('WHEN-CLAUSE         = ',SUBSTR(SPA.PARM1,4,7));
+      PSK('INDICATOR SPECIFIED = ',IND);
+      PSK('SIGNAL ERROR RAISED');
+      PSK(REPEAT('#',80));
+      SIGNAL ERROR;
+   END;
+
+   IF DEC_YYMMDD = 0
+   !  DEC_YYMMDD = 999999 THEN DO;
+      PSK(REPEAT('#',80));
+      PSK('INVALID DATE FOR DATESUB:');
+      PSK('CFL-NAME       = ',SUBSTR(SPA.CFLK1,4,30));
+      PSK('MEMBER-NAME    = ',SPA.RULE_NAME);
+      PSK('WHEN-CLAUSE    = ',SUBSTR(SPA.PARM1,4,7));
+      PSK('DATE SUPPLIED  = ',DEC_YYMMDD);
+      RETURN(DEC_YYMMDD);
+   END;
+
+   PIC_YYMMDD  = DEC_YYMMDD;
+   DEC_YYYYDDD = RFBZDCM(RFBZDKM(CHR_YYMMDD));
+
+   ID2  = IND !! '-';
+   CALL RFBZDMM(UFLAG,DEC_YYYYDDD,AMOUNT,ID2);
+
+   IF UFLAG THEN DO;
+      PSK(REPEAT('#',80));
+      PSK('INVALID DATE FOR DATESUB:');
+      PSK('CFL-NAME       = ',SUBSTR(SPA.CFLK1,4,30));
+      PSK('MEMBER-NAME    = ',SPA.RULE_NAME);
+      PSK('WHEN-CLAUSE    = ',SUBSTR(SPA.PARM1,4,7));
+      PSK('DATE SUPPLIED  = ',DEC_YYMMDD);
+      PSK('SIGNAL ERROR RAISED');
+      PSK(REPEAT('#',80));
+      SIGNAL ERROR;
+      END;
+      CHR_YYMMDD = RFBZDPM(RFBZDRM(DEC_YYYYDDD));
+        RETURN(PIC_YYMMDD);
+
+      END DATESUB;
+ /*==================================================================*/
+ /* DB2_SUB: SUBTRACT DAYS/MONTHS/YEARS FROM A CHR(10) DB2 DATE FIELD*/
+ /*                                                                  */
+ /*          CALL OF DB2_SUB:  DATENEW = DB2_SUB(DATEOLD,NR,IND)     */
+ /*                                                                  */
+ /*               DATENEW/DATEOLD ... DATE FIELDS CHAR(10) YYYY-MM-DD*/
+ /*               NR              ... NUMBER DECIMAL(3)              */
+ /*               IND             ... INDICATOR CHAR(1)              */
+ /*                                   D ... SUBTRACT DAYS            */
+ /*                                   M ... SUBTRACT MONTHS          */
+ /*                                   Y ... SUBTRACT YEARS           */
+ /*==================================================================*/
+
+ DB2_SUB:PROC (CHR_DB2_DAT,AMOUNT,IND) RETURNS(CHAR(10));
+
+   DCL  CHR_DB2_DAT  CHAR      ( 10  )                               ;
+   DCL  AMOUNT       DEC FIXED (  3  )                               ;
+   DCL  IND          CHAR      (  1  )                               ;
+
+   DCL  DEC_YYMMDD   DEC FIXED (  6  )                               ;
+
+   IF CHR_DB2_DAT = MAX_DB2_DAT()
+   !  CHR_DB2_DAT = MIN_DB2_DAT() THEN DO;
+      PSK(REPEAT('#',80));
+      PSK('INVALID DATE FOR DB2_SUB:');
+      PSK('CFL-NAME       = ',SUBSTR(SPA.CFLK1,4,30));
+      PSK('MEMBER-NAME    = ',SPA.RULE_NAME);
+      PSK('WHEN-CLAUSE    = ',SUBSTR(SPA.PARM1,4,7));
+      PSK('DATE SPECIFIED = ',CHR_DB2_DAT);
+      PSK(REPEAT('#',80));
+      RETURN(CHR_DB2_DAT);
+   END;
+
+   DEC_YYMMDD  = DATESUB(DB2_TO_DEC6(CHR_DB2_DAT),AMOUNT,IND);
+   RETURN(DEC6_TO_DB2(DEC_YYMMDD));
+
+ END DB2_SUB;
+
+ /*==================================================================*/
+ /* DATECHK: CHECKS FOR VALID CHARACTER(6) DATE  (FORMAT YYMMDD)     */
+ /*          RC = 0  VALID DATE                                      */
+ /*          RC = 12 INVALID DATE                                    */
+ /*          CALL OF DATECHK --->  RC = DATECHK('991231')            */
+ /*==================================================================*/
+
+ DATECHK: PROC (CHR_YYMMDD) RETURNS(BIN FIXED (15,0));
+
+   DCL  CHR_YYMMDD   CHAR      (  6  )                               ;
+   DCL  UFLAG        BIT       (  1  )      INIT('0'B)               ;
+
+   IF CHR_YYMMDD = '999999'
+   !  CHR_YYMMDD = '000000'
+      THEN RETURN(0);
+
+   CALL RFBZDBM(UFLAG,RFBZDKM(CHR_YYMMDD));
+
+   IF UFLAG THEN DO;
+      RETURN(12);
+   END;
+   ELSE DO;
+      RETURN(0);
+   END;
+
+ END DATECHK;
+
+ /*==================================================================*/
+ /* DAT5DAT6: CONVERTS DECIMAL(5) DATE TO DECIMAL(6) (YYDDD->YYMMDD) */
+ /*           CALL OF DAT5DAT6 --->  DAT_DEC6 = DAT5DAT6(DAT_DEC5)   */
+ /*==================================================================*/
+
+ DAT5DAT6: PROC (DEC_YYDDD) RETURNS(DEC FIXED (6));
+
+   DCL  DEC_YYDDD    DEC FIXED (  5  )                               ;
+   DCL  DEC_YYYYDDD  DEC FIXED (  7  )                               ;
+   DCL  CHR_YYMMDD   CHAR      (  6  )                               ;
+   DCL  PIC_YYMMDD   PIC '999999' DEF CHR_YYMMDD                     ;
+   DCL  UFLAG        BIT       (  1  )                               ;
+
+   IF DEC_YYDDD = 0 THEN DO;
+      RETURN(0);
+   END;
+
+   IF MOD(DEC_YYDDD,1000) > 366 THEN DO;
+      RETURN(999999);
+   END;
+
+   CALL RFBZDXM(UFLAG,DEC_YYDDD,DEC_YYYYDDD);
+
+   IF UFLAG THEN DO;
+      PSK(REPEAT('#',80));
+      PSK('INVALID DATE FOR DAT5DAT6:');
+      PSK('CFL-NAME      = ',SUBSTR(SPA.CFLK1,4,30));
+      PSK('MEMBER-NAME   = ',SPA.RULE_NAME);
+      PSK('WHEN-CLAUSE   = ',SUBSTR(SPA.PARM1,4,7));
+      PSK('DATE SUPPLIED = ',DEC_YYDDD);
+      PSK('SIGNAL ERROR RAISED');
+      PSK(REPEAT('#',80));
+      SIGNAL ERROR;
+   END;
+
+   CHR_YYMMDD = RFBZDPM(RFBZDRM(DEC_YYYYDDD));
+
+   RETURN(PIC_YYMMDD);
+
+ END DAT5DAT6;
+
+ /*==================================================================*/
+ /* DAT6DAT5: CONVERTS DECIMAL(6) DATE TO DECIMAL(5) (YYMMDD->YYDDD) */
+ /*           CALL OF DAT5DAT6 --->  DAT_DEC5 = DAT6DAT5(DAT_DEC6)   */
+ /*==================================================================*/
+
+ DAT6DAT5: PROC (DEC_YYMMDD) RETURNS(DEC FIXED (5));
+
+   DCL  DEC_YYMMDD   DEC FIXED (  6  )                               ;
+   DCL  DEC_YYYYDDD  DEC FIXED (  7  )                               ;
+   DCL  CHR_YYMMDD   CHAR      (  6  )                               ;
+   DCL  PIC_YYMMDD   PIC       '999999'  DEF CHR_YYMMDD              ;
+   DCL  UFLAG        BIT       (  1  )                               ;
+
+
+   IF DEC_YYMMDD = 0 THEN DO;
+      RETURN(0);
+   END;
+
+   IF DEC_YYMMDD = 999999 THEN DO;
+      RETURN(99999);
+   END;
+
+   PIC_YYMMDD = DEC_YYMMDD;
+   DEC_YYYYDDD = RFBZDCM(RFBZDKM(CHR_YYMMDD));
+   RETURN(RFBZDWM(DEC_YYYYDDD));
+
+ END DAT6DAT5;
+
+ /*==================================================================*/
+ /* DAT6DAT7: CONVERTS DECIMAL(6) DATE TO DECIMAL(7) (YYMMDD->YYYYDDD*/
+ /*           CALL OF DAT5DAT6 --->  DAT_DEC5 = DAT6DAT7(DAT_DEC6)   */
+ /*==================================================================*/
+
+ DAT6DAT7: PROC (DEC_YYMMDD) RETURNS(DEC FIXED (7));
+
+    DCL DEC_YYMMDD    DEC FIXED (6);
+    DCL CHR_YYMMDD    CHAR(6)      ;
+    DCL PIC_YYMMDD    PIC'999999'  DEF CHR_YYMMDD;
+
+
+    IF DEC_YYMMDD = 0
+    THEN RETURN(0);
+
+    IF DEC_YYMMDD = 999999
+    THEN RETURN(9999999);
+
+    PIC_YYMMDD = DEC_YYMMDD;
+    RETURN(RFBZDCM(RFBZDKM(CHR_YYMMDD)));
+
+ END DAT6DAT7;
+
+ /*==================================================================*/
+ /* DAY: RETURNS DAY (DECIMAL(2)) OF DATE (DECIMAL(6), FORMAT YYMMDD)*/
+ /*          CALL OF DAY     --->  XXX_DAY = DAY(XXX_DATE)           */
+ /*==================================================================*/
+
+ DAY: PROC(DEC_YYMMDD) RETURNS (DEC FIXED(2));
+
+    DCL DEC_YYMMDD DEC FIXED (6);
+
+    IF DEC_YYMMDD = 0
+    !  DEC_YYMMDD = 999999 THEN DO;
+       PSK(REPEAT('#',80));
+       PSK('INVALID DATE FOR DAY():');
+       PSK('CFL-NAME       = ',SUBSTR(SPA.CFLK1,4,30));
+       PSK('MEMBER-NAME    = ',SPA.RULE_NAME);
+       PSK('WHEN-CLAUSE    = ',SUBSTR(SPA.PARM1,4,7));
+       PSK('DATE SPECIFIED = ',DEC_YYMMDD);
+       PSK(REPEAT('#',80));
+    END;
+
+    RETURN(MOD(DEC_YYMMDD,100));
+
+ END DAY;
+
+ /*==================================================================*/
+ /* MONTH: RETURNS MONTH (DEC(2)) OF DATE (DEC(6), FORMAT YYMMDD)    */
+ /*          CALL OF MONTH   --->  XXX_MONTH = MONTH(XXX_DATE)       */
+ /*==================================================================*/
+
+ MONTH:PROC (DEC_YYMMDD) RETURNS (DEC FIXED(2));
+
+    DCL DEC_YYMMDD DEC FIXED (6);
+    DCL WORKDAT1   DEC FIXED (6);
+
+    IF DEC_YYMMDD = 0
+    !  DEC_YYMMDD = 999999 THEN DO;
+       PSK(REPEAT('#',80));
+       PSK('INVALID DATE FOR MONTH():');
+       PSK('CFL-NAME       = ',SUBSTR(SPA.CFLK1,4,30));
+       PSK('MEMBER-NAME    = ',SPA.RULE_NAME);
+       PSK('WHEN-CLAUSE    = ',SUBSTR(SPA.PARM1,4,7));
+       PSK('DATE SPECIFIED = ',DEC_YYMMDD);
+       PSK(REPEAT('#',80));
+    END;
+
+    WORKDAT1  = DEC_YYMMDD / 100;
+
+    RETURN(MOD(WORKDAT1,100));
+
+ END MONTH;
+
+ /*==================================================================*/
+ /* YEAR: RETURNS YEAR (DEC(2)) OF DATE (DEC(6), FORMAT YYMMDD)      */
+ /*          CALL OF YEAR    --->  XXX_YEAR = YEAR(XXX_DATE)         */
+ /*==================================================================*/
+
+ YEAR:PROC (DEC_YYMMDD) RETURNS(DEC FIXED(2));
+
+    DCL DEC_YYMMDD DEC FIXED (6);
+
+    IF DEC_YYMMDD = 0
+    !  DEC_YYMMDD = 999999 THEN DO;
+       PSK(REPEAT('#',80));
+       PSK('INVALID DATE FOR YEAR():');
+       PSK('CFL-NAME       = ',SUBSTR(SPA.CFLK1,4,30));
+       PSK('MEMBER-NAME    = ',SPA.RULE_NAME);
+       PSK('WHEN-CLAUSE    = ',SUBSTR(SPA.PARM1,4,7));
+       PSK('DATE SPECIFIED = ',DEC_YYMMDD);
+       PSK(REPEAT('#',80));
+    END;
+
+    RETURN(DEC_YYMMDD / 10000);
+
+ END;
+
+ /*==================================================================*/
+ /* DAYS_OF_MONTH: RETURNS THE ULTIMO DAY (DEC(2)) FOR A             */
+ /*                DECIMAL(6) DATE FIELD                             */
+ /*      CALL OF DAYS_OF_MONTH ---> XXX_DAY = DAYS_OF_MONTH(XXX_DATE)*/
+ /*==================================================================*/
+
+ DAYS_OF_MONTH:PROC (DEC_YYMMDD) RETURNS (DEC FIXED(2));
+
+    DCL DEC_YYMMDD DEC FIXED (6);
+
+    DCL MM         DEC FIXED (2);
+    DCL YY         DEC FIXED (2);
+    DCL YYYY       DEC FIXED (4);
+    DCL DAYS (12)  DEC FIXED (2)
+                              INIT(31,28,31,30,31,30,31,31,30,31,30,31);
+
+    IF DEC_YYMMDD = 0
+    !  DEC_YYMMDD = 999999 THEN DO;
+       PSK(REPEAT('#',80));
+       PSK('INVALID DATE FOR DAYS_OF_MONTH:');
+       PSK('CFL-NAME       = ',SUBSTR(SPA.CFLK1,4,30));
+       PSK('MEMBER-NAME    = ',SPA.RULE_NAME);
+       PSK('WHEN-CLAUSE    = ',SUBSTR(SPA.PARM1,4,7));
+       PSK('DATE SPECIFIED = ',DEC_YYMMDD);
+       PSK(REPEAT('#',80));
+       IF DEC_YYMMDD = 0 THEN RETURN(00);
+       ELSE RETURN(99);
+    END;
+
+    IF YEAR(DEC_YYMMDD) >= 50
+    THEN YYYY = YEAR(DEC_YYMMDD) + 1900;
+    ELSE YYYY = YEAR(DEC_YYMMDD) + 2000;
+
+    MM = MONTH(DEC_YYMMDD);
+
+    DAYS(2) = 28;
+    SELECT;
+      WHEN(MM ^= 2);
+      WHEN(MOD(YYYY,400) = 0)
+        DAYS(2) = 29;
+      WHEN((MOD(YYYY,4) = 0) & (MOD(YYYY,100) ^= 0))
+        DAYS(2) = 29;
+      OTHER;
+    END;
+
+    RETURN(DAYS(MM));
+
+ END DAYS_OF_MONTH;
+
+ /*==================================================================*/
+ /* DAY_OF_WEEK:   RETURNS THE DAY (CHAR(5)) FOR A                   */
+ /*                CHAR(6) DATE FIELD                                */
+ /*                THE VALUE RETURNED IS 0-SUN FOR SUNDAY            */
+ /*                                      1-MON FOR MONDAY            */
+ /*                                      2-TUE FOR TUESDAY           */
+ /*                                      3-WED FOR WEDNESDAY         */
+ /*                                      4-THU FOR THURSDAY          */
+ /*                                      5-FRI FOR FRIDAY            */
+ /*                                      6-SAT FOR SATURDAY          */
+ /*      CALL OF DAY_OF_WEEK  ---> XXX_DAY = DAY_OF_WEEK(XXX_DATE)   */
+ /*==================================================================*/
+
+ DAY_OF_WEEK:PROC (CHR_YYMMDD) RETURNS (CHAR(5));
+
+    DCL CHR_YYMMDD   CHAR      (6);
+    DCL PIC_YYMMDD   PIC '999999' DEF CHR_YYMMDD;
+    DCL DAY_A(0:6)   CHAR(5) STATIC INIT('0-SUN',
+                                         '1-MON',
+                                         '2-TUE',
+                                         '3-WED',
+                                         '4-THU',
+                                         '5-FRI',
+                                         '6-SAT');
+
+    DCL DEC_DAYOFW   DEC FIXED (1);
+
+    IF CHR_YYMMDD = '000000'
+    !  CHR_YYMMDD = '999999' THEN DO;
+       PSK(REPEAT('#',80));
+       PSK('INVALID DATE FOR DAY_OF_WEEK:');
+       PSK('CFL-NAME       = ',SUBSTR(SPA.CFLK1,4,30));
+       PSK('MEMBER-NAME    = ',SPA.RULE_NAME);
+       PSK('WHEN-CLAUSE    = ',SUBSTR(SPA.PARM1,4,7));
+       PSK('DATE SPECIFIED = ',CHR_YYMMDD);
+       PSK(REPEAT('#',80));
+    END;
+
+    CALL RFBZDJM(DAT6DAT7(PIC_YYMMDD),DEC_DAYOFW);
+
+    RETURN(DAY_A(DEC_DAYOFW));
+
+ END DAY_OF_WEEK;
+
+ /*==================================================================*/
+ /* CLC_MONTH: RETURN NUMBER OF MONTHS (DECIMAL(3)) BETWEEN          */
+ /*            BETWEEN DATE-BEGIN(DEC(6),YYMMDD)                     */
+ /*            AND DATE-END(DEC(6),YYMMDD)                           */
+ /*                                                                  */
+ /*  CALL OF CLC_MONTH ---> NR_MONTH = CLC_MONTH(DATE_FROM,DATE_TO)  */
+ /*==================================================================*/
+
+ CLC_MONTH:PROC (DATE01,DATE02) RETURNS (DEC FIXED( 3,0));
+
+    DCL DATE01    DEC FIXED ( 6,0);
+    DCL DATE02    DEC FIXED ( 6,0);
+    DCL DATE03    DEC FIXED ( 6,0);
+    DCL DATE04    DEC FIXED ( 6,0);
+    DCL YYYY01    DEC FIXED ( 4,0);
+    DCL YYYY02    DEC FIXED ( 4,0);
+
+    IF DATE01 = 0
+    !  DATE01 = 999999
+    !  DATE02 = 0
+    !  DATE02 = 999999 THEN DO;
+       PSK(REPEAT('#',80));
+       PSK('INVALID DATE FOR CLC_MONTH:');
+       PSK('CFL-NAME            = ',SUBSTR(SPA.CFLK1,4,30));
+       PSK('MEMBER-NAME         = ',SPA.RULE_NAME);
+       PSK('WHEN-CLAUSE         = ',SUBSTR(SPA.PARM1,4,7));
+       PSK('DATE-FROM SPECIFIED = ',DATE01);
+       PSK('DATE-TO   SPECIFIED = ',DATE02);
+       PSK(REPEAT('#',80));
+       IF DATE01 = 0
+       !  DATE02 = 0 THEN RETURN(0);
+       ELSE RETURN(999);
+    END;
+
+    DATE03 = PRORATE_START(DATE01);
+    DATE04 = PRORATE_STOP (DATE02);
+
+    IF DATE03 >= 500000
+    THEN YYYY01 = YEAR(DATE03) + 1900;
+    ELSE YYYY01 = YEAR(DATE03) + 2000;
+    IF DATE04 >= 500000
+    THEN YYYY02 = YEAR(DATE04) + 1900;
+    ELSE YYYY02 = YEAR(DATE04) + 2000;
+
+    RETURN(((YYYY02 - YYYY01) * 12) + MONTH(DATE04)-MONTH(DATE03)+1);
+
+ END CLC_MONTH;
+
+ /*==================================================================*/
+ /* CLC_DAYS:  RETURN NUMBER OF DAYS (DECIMAL(5)) BETWEEEN           */
+ /*            BETWEEN DATE-BEGIN(DB2 DATE)                          */
+ /*            AND DATE-END(DB2 DATE)                                */
+ /*                                                                  */
+ /*  CALL OF CLC_DAYS ---> NR_DAYS  = CLC_DAYS(DATE_FROM,DATE_TO)    */
+ /*==================================================================*/
+
+ CLC_DAYS : PROC (CHR_DAGR_FR,CHR_DAGR_TO) RETURNS(DEC(5));
+
+   DCL  CHR_DAGR_FR  CHAR      ( 10  )                               ;
+   DCL  CHR_DAGR_TO  CHAR      ( 10  )                               ;
+
+   DCL DEC_DAY_FST   DEC FIXED (  5  )                               ;
+   DCL DEC_DAY_LST   DEC FIXED (  5  )                               ;
+   DCL DEC_DAY_TOT   DEC FIXED (  5  )                               ;
+
+   DCL 1 DAYSFST,
+         3 YYMM,
+           5 CHR_YEARFST   CHAR(4),
+           5 CHR_MOTHFST   CHAR(2),
+         3 CHR_DAYSFST   CHAR(2),
+       1 DAYSFST_PIC      DEF DAYSFST,
+         3 YYMM,
+           5 PIC_YEARFST   PIC       '9999',
+           5 PIC_MOTHFST   PIC       '99',
+         3 PIC_DAYSFST   PIC       '99';
+
+   DCL 1 DAYSLST,
+         3 YYMM,
+           5 CHR_YEARLST   CHAR(4),
+           5 CHR_MOTHLST   CHAR(2),
+         3 CHR_DAYSLST   CHAR(2),
+       1 DAYSLST_PIC     DEF DAYSLST,
+         3 YYMM,
+           5 PIC_YEARLST   PIC       '9999',
+           5 PIC_MOTHLST   PIC       '99',
+         3 PIC_DAYSLST   PIC       '99';
+
+   IF CHR_DAGR_FR = MIN_DB2_DAT()
+   !  CHR_DAGR_FR = MAX_DB2_DAT()
+   !  CHR_DAGR_TO = MIN_DB2_DAT()
+   !  CHR_DAGR_TO = MAX_DB2_DAT() THEN DO;
+      PSK(REPEAT('#',80));
+      PSK('INVALID DATE FOR CLC_DAYS:');
+      PSK('CFL-NAME            = ',SUBSTR(SPA.CFLK1,4,30));
+      PSK('MEMBER-NAME         = ',SPA.RULE_NAME);
+      PSK('WHEN-CLAUSE         = ',SUBSTR(SPA.PARM1,4,7));
+      PSK('DATE-FROM SPECIFIED = ',CHR_DAGR_FR);
+      PSK('DATE-TO   SPECIFIED = ',CHR_DAGR_TO);
+      PSK(REPEAT('#',80));
+      IF CHR_DAGR_FR = MIN_DB2_DAT()
+      !  CHR_DAGR_TO = MIN_DB2_DAT() THEN RETURN(0);
+      ELSE RETURN(99999);
+   END;
+
+   CHR_DAYSFST = SUBSTR(CHR_DAGR_FR,9, 2);
+   CHR_MOTHFST = SUBSTR(CHR_DAGR_FR,6, 2);
+   CHR_YEARFST = SUBSTR(CHR_DAGR_FR,1, 4);
+
+   CHR_DAYSLST = SUBSTR(CHR_DAGR_TO,9, 2);
+   CHR_MOTHLST = SUBSTR(CHR_DAGR_TO,6, 2);
+   CHR_YEARLST = SUBSTR(CHR_DAGR_TO,1, 4);
+
+   SELECT;
+     WHEN(PIC_DAYSFST = 31)
+       PIC_DAYSFST = 30;
+     WHEN((PIC_DAYSFST = 28 ! PIC_DAYSFST = 29) &
+           (PIC_MOTHFST = 2))
+       PIC_DAYSFST = 30;
+     OTHER;
+   END;
+   SELECT;
+     WHEN(PIC_DAYSLST = 31)
+       PIC_DAYSLST = 30;
+     WHEN((PIC_DAYSLST = 28 ! PIC_DAYSLST = 29) &
+          (PIC_MOTHLST = 2))
+       PIC_DAYSLST = 30;
+     OTHER;
+   END;
+   SELECT;
+   /*-----------------------------------------------------------*/
+      WHEN (STRING(DAYSFST) = STRING(DAYSLST))
+   /*-----------------------------------------------------------*/
+         DEC_DAY_TOT = 1;
+   /*-----------------------------------------------------------*/
+      WHEN (STRING(DAYSFST.YYMM) = STRING(DAYSLST.YYMM))
+   /*-----------------------------------------------------------*/
+         DEC_DAY_TOT = PIC_DAYSLST - PIC_DAYSFST + 1;
+   /*-----------------------------------------------------------*/
+      WHEN (PIC_YEARFST = PIC_YEARLST)
+   /*-----------------------------------------------------------*/
+         DEC_DAY_TOT = 31 - PIC_DAYSFST +
+                       PIC_DAYSLST +
+                      (30 * (PIC_MOTHLST - PIC_MOTHFST -1));
+   /*-----------------------------------------------------------*/
+      OTHERWISE
+   /*-----------------------------------------------------------*/
+         DEC_DAY_TOT = 31 - PIC_DAYSFST +
+                       PIC_DAYSLST +
+                         30 * (12 *(PIC_YEARLST - PIC_YEARFST -1) +
+                         11 - PIC_MOTHFST + PIC_MOTHLST);
+   /*-----------------------------------------------------------*/
+   END;
+
+   RETURN (DEC_DAY_TOT);
+
+ END CLC_DAYS;
+
+ /*==================================================================*/
+ /* DateCalc: New Date routines for Chis. Initialized by CR48        */
+ /*           Feb. 2014.                                             */
+ /*                                                                  */
+ /* Add-up or Subtract DAYS/MONTHS/YEARS to a CHAR(10) DB2 Date field*/
+ /*     This routine has the folowing differences compared to        */
+ /*     the previous date routines DB2_ADD, DB2_SUB:                 */
+ /*       - "real" 4 digit year calculation which means that         */
+ /*         date calculations before 1900 and after 2049 are possible*/
+ /*       - if InDate is 28th of a month and routine has to calculate*/
+ /*         a date into february of a leap year by adding/subtracting*/
+ /*         month(s)/year(s) the new date is also on 28th:           */
+ /*                                                                  */
+ /*         Example:                                                 */
+ /*                              DateCalc result     DB2_ADD result  */
+ /*         2016-01-28  +1 M  :     2016-02-28         2016-02-29    */
+ /*         2015-02-28  +1 Y  :     2016-02-28         2016-02-29    */
+ /*                                                                  */
+ /*     Calling DateCalc:                                            */
+ /*     DATENEW = DATECALC(INDATE,INVALUE,UNIT)                      */
+ /*                                                                  */
+ /*               DATENEW/INDATE  ... DATE FIELDS CHAR(10) YYYY-MM-DD*/
+ /*               INVALUE         ... NUMBER DECIMAL(15)             */
+ /*                                   Addition    if positive value  */
+ /*                                   Subtraction if negative value  */
+ /*               UNIT            ... UNIT      CHAR(1)              */
+ /*                                   D ... DAYS                     */
+ /*                                   M ... MONTHS                   */
+ /*                                   Y ... YEARS                    */
+ /*                                                                  */
+ /* Returns '0001-01-01' in case of invalid input or result          */
+ /*==================================================================*/
+
+ DateCalc: PROC (DC_InDate,DC_InValue,DC_InUnit) RETURNS( CHAR(10) );
+   /*----------------------------------------------------------------*/
+   DCL  DC_InDate    CHAR      ( 10  )                               ;
+   DCL  DC_OutDate   CHAR      ( 10  )                               ;
+   DCL  DC_InValue   DEC FIXED ( 15,0)                               ;
+   DCL  DC_InUnit    CHAR      (  1  )                               ;
+   /*----------------------------------------------------------------*/
+   DCL  DefDate      CHAR               VALUE('0001-01-01');
+   DCL  DateFMT      CHAR               VALUE('YYYY-MM-DD');
+   DCL  DtLilian     BIN FIXED ( 31,0); /* InDate converted to Lilian*/
+   /*----------------------------------------------------------------*/
+
+   /*--- Verify Input parameter -------------------------------------*/
+   IF checkInputOK(DC_InDate, DC_InUnit, DtLilian)
+   THEN DO;
+     DC_OutDate = DC_InDate;
+
+     SELECT(DC_InUnit);
+       WHEN('D') DC_OutDate = addDays  (DtLilian,  DC_InValue    );
+       WHEN('M') DC_OutDate = addMonths(DC_InDate, DC_InValue    );
+       WHEN('Y') DC_OutDate = addMonths(DC_InDate, DC_InValue*12 );
+     END;
+   END;
+   ELSE
+     DC_OutDate = DefDate;
+
+   RETURN(DC_OutDate);
+
+   /*--- Verify Input parameter -------------------------------------*/
+   /* when check is OK then InDate is converted to Lilian number     */
+   checkInputOK: PROC(InDate,InUnit,DtLilian) RETURNS(BIT(1));
+     DCL InDate       CHAR     ( 10  );
+     DCL InUnit       CHAR     (  1  );
+     DCL DtLilian     BIN FIXED(31,0);
+
+     DCL InUnitOK      BIT(1);
+     DCL InDateOK      BIT(1);
+
+     DtLilian = 0;
+     InUnitOK = '1'b;
+     /*--------------------------------------------------------------*/
+     IF INDEX('DMY',InUnit) = 0
+     THEN DO;
+       psk(REPEAT('#',80));
+       psk('INVALID UNIT FOR DATECALC:');
+       psk('CFL-NAME            = ',SUBSTR(SPA.CFLK1,4,30));
+       psk('MEMBER-NAME         = ',SPA.RULE_NAME);
+       psk('WHEN-CLAUSE         = ',SUBSTR(SPA.PARM1,4,7));
+       psk('UNIT SPECIFIED      = ',InUnit, ' (MUST BE: D, M or Y');
+       InUnitOK = '0'b;
+     END;
+     /*--------------------------------------------------------------*/
+     InDateOK = DateOK(InDate, DtLilian);
+
+     IF ^InDateOK
+     THEN DO;
+       psk(REPEAT('#',80));
+       psk('INVALID DATE FOR DATECALC:');
+       psk('CFL-NAME      = ',SUBSTR(SPA.CFLK1,4,30));
+       psk('MEMBER-NAME   = ',SPA.RULE_NAME);
+       psk('WHEN-CLAUSE   = ',SUBSTR(SPA.PARM1,4,7));
+       psk('DATE SUPPLIED = ',InDate);
+       psk('ONCODE        = ',ONCODE());
+     END;
+
+     RETURN(InUnitOK & InDateOK);
+
+   END checkInputOK;
+
+   /*--- add Days to a Date -----------------------------------------*/
+   addDays: PROC  (DtLilian, InValue    ) RETURNS( CHAR(10) );
+     DCL  DtLilian  BIN FIXED ( 31,0)                               ;
+     DCL  InValue   DEC FIXED ( 15,0)                               ;
+     DCL  OutDate   CHAR      ( 10  )                               ;
+
+     /* This ON ERROR block is only in scope of this proc:            */
+     /* In case of invalid InDate DAYSSTODATE invoces Error condition */
+     ON ERROR BEGIN;
+       ON ERROR SYSTEM;
+
+       psk(REPEAT('#',80));
+       psk('INVALID DATE RESULT FOR DATECALC:');
+       psk('CFL-NAME      = ',SUBSTR(SPA.CFLK1,4,30));
+       psk('MEMBER-NAME   = ',SPA.RULE_NAME);
+       psk('WHEN-CLAUSE   = ',SUBSTR(SPA.PARM1,4,7));
+       psk('DATE SUPPLIED = ',DC_InDate);
+       psk('VALUE SUPPLIED= ',DC_InValue);
+       psk('UNIT SUPPLIED = ',DC_InUnit);
+       psk('ONCODE        = ',ONCODE());
+
+       OutDate = DefDate;
+       GOTO RetAdd;
+     END;
+
+     OutDate = DAYSTODATE(DtLilian + InValue, DateFMT);
+
+   RetAdd:
+     RETURN(OutDate);
+
+   END addDays;
+
+   /*--- add Months do a Date ---------------------------------------*/
+   addMonths: PROC(InDate, InValue      ) RETURNS( CHAR(10) );
+     DCL  InDate    CHAR      ( 10  )                               ;
+     DCL  InValue   DEC FIXED ( 15,0)                               ;
+     DCL  OutDate   CHAR      ( 10  )                               ;
+     /*--------------------------------------------------------------*/
+     DCL  DateChar  CHAR      ( 10  )                               ;
+     DCL 1 Date_pic DEF(DateChar),
+           2 YYYY   PIC  '(4)9',
+           2 S1     CHAR (1),
+           2 MM     PIC  '(2)9',
+           2 S2     CHAR (1),
+           2 DD     PIC  '(2)9';
+
+     DCL  DtY_dec   DEC FIXED (  4,0)                               ;
+     DCL  DtM_dec   DEC FIXED (  2,0)                               ;
+     DCL  DtD_dec   DEC FIXED (  2,0)                               ;
+     DCL  Months    DEC FIXED ( 15,0)                               ;
+
+     DateChar  = InDate;
+     DtY_dec   = Date_pic.YYYY;
+     DtM_dec   = Date_pic.MM;
+     DtD_dec   = Date_pic.DD;
+
+     Months = DtY_dec * 12 + DtM_dec + InValue;
+
+     IF ( Months > 120000                                /* 9999.12 */
+        ! Months < 13 )                                  /* 0001.01 */
+     THEN DO;
+       psk(REPEAT('#',80));
+       psk('INVALID DATE RESULT FOR DATECALC:');
+       psk('CFL-NAME      = ',SUBSTR(SPA.CFLK1,4,30));
+       psk('MEMBER-NAME   = ',SPA.RULE_NAME);
+       psk('WHEN-CLAUSE   = ',SUBSTR(SPA.PARM1,4,7));
+       psk('DATE SUPPLIED = ',DC_InDate);
+       psk('VALUE SUPPLIED= ',DC_InValue);
+       psk('UNIT SUPPLIED = ',DC_InUnit);
+       OutDate = DefDate;
+     END;
+     ELSE DO;
+       DtY_dec = (Months-1) / 12;
+       DtM_dec = MOD(Months,12);
+       IF DtM_dec = 0 THEN
+          DtM_dec = 12;
+
+       DtD_dec = MIN(DtD_dec, MonthDays(DtY_dec,DtM_dec));
+
+       Date_pic.YYYY = DtY_dec;
+       Date_pic.MM   = DtM_dec;
+       Date_pic.DD   = DtD_dec;
+
+       OutDate = DateChar;
+     END;
+
+     RETURN( OutDate );
+   END addMonths;
+
+ END DateCalc;
+
+ /*==================================================================*/
+ /*- DateOK: returns true/false if given Date is correct or not      */
+ /*                                                                  */
+ /*     This routine has the folowing differences compared to        */
+ /*     the previous date routine DATECHK:                           */
+ /*       - works with 4-digit year instead of 2-digit               */
+ /*       - Return code is BIT(true/false) instead of BIN FIXED(15,0)*/
+ /*                                                   (0=OK, 12=NOK) */
+ /*  Calling:                                                        */
+ /*     Result  = DateOK(INDATE)                                     */
+ /*     Result  = DateOK(INDATE, OutLilian)  (Only Driver internal)  */
+ /*                                                                  */
+ /*               INDATE    ... DATE FIELD  CHAR(10) YYYY-MM-DD      */
+ /*               OUTLILIAN ...Out: Date in Lilian Format (optional) */
+ /*               Result    ... True/False  BIT(1)                   */
+ /*                                                                  */
+ /*==================================================================*/
+
+ DCL DateOK      GENERIC ( DateOK1     WHEN ( CHAR           )
+                         , DateOK2     WHEN ( CHAR
+                                             ,BIN FIXED      ) );
+   /*----------------------------------------------------------------*/
+   DateOK1: PROC (InDate )            RETURNS (BIT(1));
+     DCL InDate    CHAR      ( 10   );
+     DCL rC        BIT(1);
+
+     DCL DtLilian  BIN FIXED ( 31,0 );  /* INDATE CONVERTED TO LILIAN */
+
+     RETURN(DateOK(InDate, DtLilian));
+
+   END DateOK1;
+
+   /*----------------------------------------------------------------*/
+   DateOK2: PROC (InDate, OutLilian ) RETURNS (BIT(1));
+     DCL InDate    CHAR      ( 10   );
+     DCL OutLilian BIN FIXED ( 31,0 );/* INDATE CONVERTED TO LILIAN */
+
+     DCL rC        BIT(1);
+
+     DCL 1 Dt      DEF(InDate),
+           2 YYYY    PIC '9999',
+           2 S1      CHAR(1),
+           2 MM      PIC '99',
+           2 S2      CHAR(1),
+           2 DD      PIC '99';
+
+     DCL numeric   CHAR             VALUE('1234567890');
+     DCL dateFMT   CHAR             VALUE('YYYY-MM-DD');
+
+     /* This ON ERROR block is only in scope of this proc:           */
+     /* In case of invalid InDate DAYS invoces Error condition       */
+     ON ERROR BEGIN;
+       ON ERROR SYSTEM;
+
+       psk(REPEAT('#',80));
+       psk('INVALID DATE FOR DATEOK:');
+       psk('CFL-NAME      = ',SUBSTR(SPA.CFLK1,4,30));
+       psk('MEMBER-NAME   = ',SPA.RULE_NAME);
+       psk('WHEN-CLAUSE   = ',SUBSTR(SPA.PARM1,4,7));
+       psk('DATE SUPPLIED = ',InDate);
+       psk('ONCODE        = ',ONCODE());
+
+       rC = '0'b;
+       GOTO RetDtOK;
+     END;
+     /*--------------------------------------------------------------*/
+     IF( VERIFY(Dt.YYYY    , numeric) ^= 0
+       ! VERIFY(Dt.MM      , numeric) ^= 0
+       ! VERIFY(Dt.DD      , numeric) ^= 0
+
+       ! ( Dt.YYYY = '0000'
+         & Dt.MM       = '00'
+         & Dt.DD       = '00')
+
+       ! ( Dt.YYYY = '0001'
+         & Dt.MM       = '01'
+         & Dt.DD       = '01')
+
+       ! ( Dt.YYYY = '9999'
+         & Dt.MM       = '12'
+         & Dt.DD       = '31')
+       )
+     THEN rC = '0'b;
+     ELSE DO;
+       OutLilian = DAYS(InDate, dateFMT);/* convert to Lilian format*/
+
+       IF InDate = DAYSTODATE(OutLilian, dateFMT)
+       THEN rC = '1'b;
+       ELSE rC = '0'b;
+     END;
+
+   RetDtOK:
+     RETURN(rC);
+
+   END DateOK2;
+ /*- DateOK End ====================================================*/
+
+ /*==================================================================*/
+ /*- isLeapYear: returns true/false if Date is in a Leap Year or not */
+ /*                                                                  */
+ /*  Calling:                                                        */
+ /*     Result  = isLeapYear(INDATE)                                 */
+ /*     Result  = isLeapYear(YYYY)             (Only Driver internal)*/
+ /*                                                                  */
+ /*               INDATE    ... DATE FIELD  CHAR(10) YYYY-MM-DD      */
+ /*               YYYY      ... Year of Date DECIMAL(4)              */
+ /*               Result    ... True/False  BIT(1)                   */
+ /*                                                                  */
+ /*==================================================================*/
+
+ DCL isLeapYear  GENERIC ( IsLeapYearC WHEN ( CHAR           )
+                         , IsleapYearD WHEN ( DEC FIXED      ) );
+   /*----------------------------------------------------------------*/
+   isLeapYearC: PROC (InDate) RETURNS (BIT(1));
+     DCL InDate    CHAR(10);
+     DCL rC        BIT;
+
+     DCL 1 Dt      DEF(InDate),
+           2 YYYY    PIC '9999',
+           2 S1      CHAR(1),
+           2 MM      PIC '99',
+           2 S2      CHAR(1),
+           2 DD      PIC '99';
+
+     IF DateOK(InDate)
+     THEN rC = IsLeapYear(DECIMAL(Dt.YYYY,4));
+     ELSE DO;
+       psk(REPEAT('#',80));
+       psk('INVALID DATE FOR ISLEAPYEAR:');
+       psk('CFL-NAME      = ',SUBSTR(SPA.CFLK1,4,30));
+       psk('MEMBER-NAME   = ',SPA.RULE_NAME);
+       psk('WHEN-CLAUSE   = ',SUBSTR(SPA.PARM1,4,7));
+       psk('DATE SUPPLIED = ',InDate);
+
+       rC = '0'b;
+     END;
+
+     RETURN(rC);
+
+   END isLeapYearC;
+
+   /*-----------------------------------------------------------------*/
+   isLeapYearD: PROC (YYYY) RETURNS (BIT(1));
+     DCL YYYY      DEC FIXED (4);
+
+     IF ( MOD(YYYY,4  ) = 0 & MOD(YYYY,100) ^= 0 )
+        ! MOD(YYYY,400) = 0
+     THEN RETURN('1'b);
+     ELSE RETURN('0'b);
+
+   END isLeapYearD;
+ /*= IsLeapYear End =================================================*/
+
+ /*==================================================================*/
+ /*- MonthDays: returns the number of Days in month for a given date */
+ /*                                                                  */
+ /*     This routine has the folowing differences compared to        */
+ /*     the previous date routine DAYS_OF_MONTH:                     */
+ /*       - works with 4 digit year                                  */
+ /*                                                                  */
+ /*  Calling:                                                        */
+ /*     Days    = MonthDays(INDATE)                                  */
+ /*     Days    = MonthDays(YYYY, MM)          (Only Driver internal)*/
+ /*                                                                  */
+ /*               INDATE    ... DATE FIELD  CHAR(10) YYYY-MM-DD      */
+ /*               YYYY, MM  ... Year,Month of Date DECIMAL(4) , (2)  */
+ /*               Days      ... Number of days in month  DECIMAL(2)  */
+ /*                                                                  */
+ /*==================================================================*/
+
+ DCL MonthDays   GENERIC ( MonthDaysC  WHEN ( CHAR           )
+                         , MonthDaysD  WHEN ( DEC FIXED
+                                             ,DEC FIXED      ) );
+   /*----------------------------------------------------------------*/
+   MonthDaysC: PROC (InDate) RETURNS (DEC FIXED (2));
+     DCL InDate     CHAR(10);
+     DCL rDays      DEC FIXED (2);
+
+     DCL 1 DT      DEF(InDate),
+           2 YYYY    PIC '9999',
+           2 S1      CHAR(1),
+           2 MM      PIC '99',
+           2 S2      CHAR(1),
+           2 DD      PIC '99';
+
+     IF DateOK(InDate)
+     THEN rDays = MonthDays(DECIMAL(Dt.YYYY,4), DECIMAL(Dt.MM,2));
+     ELSE DO;
+       psk(REPEAT('#',80));
+       PSK('INVALID DATE FOR MONTHDAYS:');
+       psk('CFL-NAME      = ',SUBSTR(SPA.CFLK1,4,30));
+       psk('MEMBER-NAME   = ',SPA.RULE_NAME);
+       psk('WHEN-CLAUSE   = ',SUBSTR(SPA.PARM1,4,7));
+       psk('DATE SUPPLIED = ',InDate);
+
+       rDays = 0;
+     END;
+
+     RETURN(rDays);
+
+   END MonthDaysC;
+
+   /*----------------------------------------------------------------*/
+   MonthDaysD: PROC (YYYY, MM) RETURNS (DEC FIXED (2));
+     DCL YYYY       DEC FIXED (4);
+     DCL MM         DEC FIXED (2);
+     DCL DAYS (12)  DEC FIXED (2)
+                         INIT (31,28,31,30,31,30,31,31,30,31,30,31);
+
+     IF MM = 2
+     THEN DO;
+       IF isLeapYear(YYYY)
+       THEN Days(2) = 29;
+       ELSE Days(2) = 28;
+     END;
+
+     RETURN(Days(MM));
+
+   END MonthDaysD;
+ /*- MonthDays End  =================================================*/
+
+ /*==================================================================*/
+ /* CLC_DAYS_30:  RETURN NUMBER OF DAYS (DECIMAL(5)) BETWEEEN        */
+ /*               BETWEEN DATE-BEGIN(DB2 DATE)                       */
+ /*               AND DATE-END(DB2 DATE) ON 30 DAYS PER MONTH BASIS  */
+ /*                                                                  */
+ /*  CALL OF CLC_DAYS_30 ---> NR_DAYS = CLC_DAYS_30(DATE_FR,DATE_TO) */
+ /*==================================================================*/
+
+ CLC_DAYS_30 : PROC (CHR_DAGR_FR,CHR_DAGR_TO) RETURNS(DEC(5));
+
+   DCL  CHR_DAGR_FR  CHAR      ( 10  )                               ;
+   DCL  CHR_DAGR_TO  CHAR      ( 10  )                               ;
+
+   DCL  DEC_DAGR_FR  DEC FIXED (  6  )                               ;
+   DCL  DEC_DAGR_TO  DEC FIXED (  6  )                               ;
+
+   DCL DEC_DAY_MTH   DEC FIXED (  5  )                               ;
+   DCL DEC_MTH_TOT   DEC FIXED (  5  )                               ;
+   DCL DEC_DAY_TOT   DEC FIXED (  5  ) AUTO INIT(0)                  ;
+
+   IF CHR_DAGR_FR = MIN_DB2_DAT()
+   !  CHR_DAGR_FR = MAX_DB2_DAT()
+   !  CHR_DAGR_TO = MIN_DB2_DAT()
+   !  CHR_DAGR_TO = MAX_DB2_DAT() THEN DO;
+      PSK(REPEAT('#',80));
+      PSK('INVALID DATE FOR CLC_DAYS_30:');
+      PSK('CFL-NAME            = ',SUBSTR(SPA.CFLK1,4,30));
+      PSK('MEMBER-NAME         = ',SPA.RULE_NAME);
+      PSK('WHEN-CLAUSE         = ',SUBSTR(SPA.PARM1,4,7));
+      PSK('DATE-FROM SPECIFIED = ',CHR_DAGR_FR);
+      PSK('DATE-TO   SPECIFIED = ',CHR_DAGR_TO);
+      PSK(REPEAT('#',80));
+      IF CHR_DAGR_FR = MIN_DB2_DAT()
+      !  CHR_DAGR_TO = MIN_DB2_DAT() THEN RETURN(0);
+      ELSE RETURN(99999);
+   END;
+
+   DEC_DAGR_FR = DB2_TO_DEC6(CHR_DAGR_FR);
+   DEC_DAGR_TO = DB2_TO_DEC6(CHR_DAGR_TO);
+
+   /*---------------------------------------------------------*/
+   /* CALCULATION FOR PERIOD OF BILLING RECORD                */
+   /* PERIOD DOESN'T START ON THE FIRST DAY OF A MONTH        */
+   /*---------------------------------------------------------*/
+
+   DEC_DAY_MTH = DAY(DEC_DAGR_FR);
+   IF DEC_DAY_MTH ^= 1
+   THEN DEC_DAY_TOT = DEC_DAY_MTH - 1;
+
+   /*---------------------------------------------------------*/
+   /* PERIOD DOESN'T END ON THE LAST DAY OF A MONTH           */
+   /*---------------------------------------------------------*/
+
+   DEC_DAY_MTH = DAY(DEC_DAGR_TO);
+   IF DEC_DAY_MTH ^= DAYS_OF_MONTH(DEC_DAGR_TO)
+   THEN DEC_DAY_TOT = DEC_DAY_TOT + ( 30 - DEC_DAY_MTH ) ;
+
+   /*---------------------------------------------------------*/
+   /* CALCULATE THE MONTHS OF THE CALCULATION PERIOD INCLUDING*/
+   /* THE MONTH OF THE START AND STOP DATE EVEN IF THE START  */
+   /* DATE IS NOT THE 1ST AND THE STOP DATE IS NOT THE LAST   */
+   /*---------------------------------------------------------*/
+
+   DEC_MTH_TOT = CLC_MONTH(DEC_DAGR_FR,DEC_DAGR_TO);
+   IF DAY(DEC_DAGR_FR) ^= 1
+   THEN DEC_MTH_TOT = DEC_MTH_TOT + 1 ;
+
+   RETURN(DEC_MTH_TOT * 30 - DEC_DAY_TOT);
+
+ END CLC_DAYS_30;
+
+ /*==================================================================*/
+ /* DEC5_TO_DB2: CONVERT DEC(5) YYDDD TO CHAR(10) YYYY=MM=DD         */
+ /*              CALL OF DEC5_TO_DB2 ===> DB2_DATE = DEC5_TO_DB2(DEC)*/
+ /*==================================================================*/
+
+ DEC5_TO_DB2:PROC (DEC_YYDDD) RETURNS(CHAR(10));
+
+    DCL DEC_YYDDD  DEC FIXED (5);
+    DCL PIC_YYMMDD PIC'999999'   DEF CHR_YYMMDD;
+    DCL CHR_YYMMDD CHAR(6)       INIT(' ');
+
+    PIC_YYMMDD = DAT5DAT6(DEC_YYDDD);
+    RETURN(CHR6_TO_DB2(CHR_YYMMDD));
+
+ END DEC5_TO_DB2;
+
+ /*==================================================================*/
+ /* DEC6_TO_DB2: CONVERT DEC(6) YYMMDD TO CHAR(10) YYYY=MM=DD        */
+ /*              CALL OF DEC6_TO_DB2 ===> DB2_DATE = DEC6_TO_DB2(DEC)*/
+ /*==================================================================*/
+
+ DEC6_TO_DB2:PROC (DEC_YYMMDD) RETURNS(CHAR(10));
+
+    DCL DEC_YYMMDD DEC FIXED (6);
+    DCL PIC_YYMMDD PIC'999999'   DEF CHR_YYMMDD;
+    DCL CHR_YYMMDD CHAR(6)       INIT(' ');
+
+    PIC_YYMMDD = DEC_YYMMDD;
+    RETURN(CHR6_TO_DB2(CHR_YYMMDD));
+
+ END DEC6_TO_DB2;
+
+ /*==================================================================*/
+ /* CHR6_TO_DB2: CONVERT CHAR(6) YYMMDD TO CHAR(10) YYYY=MM=DD       */
+ /*              CALL OF CHR6_TO_DB2 ===> DB2_DATE = CHR6_TO_DB2(CHR)*/
+ /*==================================================================*/
+
+ CHR6_TO_DB2:PROC (CHR_YYMMDD) RETURNS(CHAR(10));
+    DCL CHR_YYMMDD CHAR(6);
+    DCL DB2_DATE   CHAR(10) INIT(' ');
+    DCL FORMAT     CHAR(3)  INIT('ISO');
+    DCL UFLAG      BIT(1)   INIT('0'B);
+    DCL I          BIN FIXED(15) INIT(0);
+
+    /*UPSK('PARM=',CHR_YYMMDD);*/
+    IF CHR_YYMMDD = '000000' !
+       CHR_YYMMDD = ''
+    THEN RETURN('0001-01-01');
+
+    IF CHR_YYMMDD = '999999'
+    THEN RETURN('9999-12-31');
+
+    /****************************************/
+    /* REPLACE LEADING BLANKS WITH 0        */
+    /* OTHERWISE THE RFBZFLM WOULD ABEND    */
+    /****************************************/
+    DO I=1 TO 6
+      WHILE(SUBSTR(CHR_YYMMDD,I,1) = ' ');
+      SUBSTR(CHR_YYMMDD,I,1) = '0';
+    END;
+
+    CALL RFBZFLM(UFLAG,CHR_YYMMDD,DB2_DATE,FORMAT);
+
+    IF UFLAG THEN DO;
+       PSK(REPEAT('#',80)                  );
+       PSK('INVALID DATE FOR CHR6_TO_DB2:');
+       PSK('CFL-NAME      = ',SUBSTR(SPA.CFLK1,4,30));
+       PSK('MEMBER-NAME   = ',SPA.RULE_NAME);
+       PSK('WHEN-CLAUSE   = ',SUBSTR(SPA.PARM1,4,7));
+       PSK('DATE SUPPLIED = ',CHR_YYMMDD   );
+       PSK('SIGNAL ERROR RAISED'           );
+       PSK(REPEAT('#',80)                  );
+       SIGNAL ERROR;
+    END;
+
+    RETURN(DB2_DATE);
+
+ END CHR6_TO_DB2;
+
+ /*==================================================================*/
+ /* DB2_TO_DEC5: CONVERT CHAR(10) YYYY=MM=DD TO DEC(5) YYDDD         */
+ /*              CALL OF DB2_TO_DEC5 ===> YYDDD = DB2_TO_DEC5(DB2)   */
+ /*==================================================================*/
+
+ DB2_TO_DEC5:PROC (DB2_DATE) RETURNS(DEC(5));
+
+    DCL DB2_DATE   CHAR(10);
+    DCL PIC_YYMMDD PIC'999999'   DEF CHR_YYMMDD;
+    DCL CHR_YYMMDD CHAR(6)       INIT(' ');
+
+    CHR_YYMMDD = DB2_TO_CHR6(DB2_DATE);
+    RETURN(DAT6DAT5(PIC_YYMMDD));
+
+ END DB2_TO_DEC5;
+
+ /*==================================================================*/
+ /* DB2_TO_DEC6: CONVERT CHAR(10) YYYY=MM=DD TO DEC(6) YYMMDD        */
+ /*              CALL OF DB2_TO_DEC6 ===> YYMMDD = DB2_TO_DEC6(DB2)  */
+ /*==================================================================*/
+
+ DB2_TO_DEC6:PROC (DB2_DATE) RETURNS(DEC(6));
+
+    DCL DB2_DATE   CHAR(10);
+    DCL PIC_YYMMDD PIC'999999'   DEF CHR_YYMMDD;
+    DCL CHR_YYMMDD CHAR(6)       INIT(' ');
+
+    CHR_YYMMDD = DB2_TO_CHR6(DB2_DATE);
+
+    RETURN(PIC_YYMMDD);
+
+ END DB2_TO_DEC6;
+
+ /*==================================================================*/
+ /* TIMEADD    : ADD TWO TIMEFIELDS CHR(6) IN FORMAT HHMMSS TOGETHER */
+ /*              CALL OF TIMEADD ===> HHMMSS = TIMEADD(HHMMSS,HHMMSS)*/
+ /*        NOTE: THE CALCULATION IS ONLY FOR ONE DAY, RESULTS GREATER*/
+ /*              THAN '240000' ARE SET TO '000000'                   */
+ /*==================================================================*/
+
+ TIMEADD:PROC (CHR_HHMMSS1,CHR_HHMMSS2) RETURNS(CHAR(6));
+
+    DCL CHR_HHMMSS1 CHAR(6),
+        1 S1          DEF CHR_HHMMSS1,
+          3 HHHH      PIC '99',
+          3 MMMM      PIC '99',
+          3 SSSS      PIC '99';
+    DCL CHR_HHMMSS2 CHAR(6),
+        1 S2          DEF CHR_HHMMSS2 LIKE S1;
+
+    DCL DEC_SUMME   DEC FIXED(15,0);
+
+    DCL PIC_HHHH    PIC '99' DEF CHR_HHHH,
+        CHR_HHHH    CHAR(2);
+    DCL PIC_MMMM    PIC '99' DEF CHR_MMMM,
+        CHR_MMMM    CHAR(2);
+    DCL PIC_SSSS    PIC '99' DEF CHR_SSSS,
+        CHR_SSSS    CHAR(2);
+
+    DEC_SUMME   = S1.HHHH * 3600 +
+                  S1.MMMM *   60 +
+                  S1.SSSS        +
+                  S2.HHHH * 3600 +
+                  S2.MMMM *   60 +
+                  S2.SSSS        ;
+
+    PIC_HHHH    = DEC_SUMME / 3600 ;
+
+    IF PIC_HHHH > '23'
+    THEN RETURN('000000');
+    ELSE DO;
+           DEC_SUMME   = DEC_SUMME - PIC_HHHH  * 3600 ;
+           PIC_MMMM    = DEC_SUMME /   60 ;
+           PIC_SSSS    = DEC_SUMME - PIC_MMMM  *   60 ;
+           RETURN(CHR_HHHH !! CHR_MMMM !! CHR_SSSS);
+         END;
+
+ END TIMEADD;
+
+ /*==================================================================*/
+ /* DB2_TO_CHR6: CONVERT CHAR(10) YYYY=MM=DD TO CHAR(6) YYMMDD       */
+ /*              CALL OF DB2_TO_CHR6 ===> YYMMDD = DB2_TO_CHR6(DB2)  */
+ /*==================================================================*/
+
+ DB2_TO_CHR6:PROC (DB2_DATE) RETURNS(CHAR(6));
+
+    DEFAULT RANGE(*) AUTOMATIC;   /* DO NOT REMOVE, RFBZFJM TROUBLES */
+
+    DCL DB2_DATE   CHAR(10);
+    DCL CHR_DDMMYY CHAR(6)  INIT(' ');
+    DCL FORMAT     CHAR(3)  INIT('ISO');
+    DCL UFLAG      BIT(1)   INIT('0'B);
+
+    IF DB2_DATE = '0001-01-01' !
+       DB2_DATE = ''
+    THEN RETURN('000000');
+
+    IF DB2_DATE = '9999-12-31'
+    THEN RETURN('999999');
+
+    IF SUBSTR(DB2_DATE,1,4) > '2049'
+    THEN  RETURN('999999');
+
+    CALL RFBZFJM(UFLAG,CHR_DDMMYY,DB2_DATE,FORMAT);
+
+    IF UFLAG THEN DO;
+       PSK(REPEAT('#',80)                  );
+       PSK('INVALID DATE FOR DB2_TO_CHR6:');
+       PSK('CFL-NAME      = ',SUBSTR(SPA.CFLK1,4,30));
+       PSK('MEMBER-NAME   = ',SPA.RULE_NAME);
+       PSK('WHEN-CLAUSE   = ',SUBSTR(SPA.PARM1,4,7));
+       PSK('DATE SUPPLIED = ',DB2_DATE     );
+       PSK('SIGNAL ERROR RAISED'           );
+       PSK(REPEAT('#',80)                  );
+       SIGNAL ERROR;
+    END;
+
+    RETURN(RFBZDPM(CHR_DDMMYY));
+
+ END DB2_TO_CHR6;
+
+ /*==================================================================*/
+ /* DEC9_TO_DB2: CONVERT DEC(9) HHMMSSXXX TO CHAR(8) HH.MM.SS        */
+ /*         CALL OF DEC9_TO_DB2 ===> DB2_TIME = DEC9_TO_DB2(DEC9)    */
+ /*==================================================================*/
+
+ DEC9_TO_DB2:PROC (DEC_HHMMSSXXX) RETURNS(CHAR(8));
+
+   DCL  DEC_HHMMSSXXX DEC FIXED (  9  )                              ;
+   DCL  PIC_HHMMSSXXX PIC       '999999999' DEF CHR_HHMMSSXXX,
+        CHR_HHMMSSXXX CHAR      (  9  )     INIT(' ')                ;
+
+   PIC_HHMMSSXXX = DEC_HHMMSSXXX;
+   RETURN(CHR9_TO_DB2(CHR_HHMMSSXXX));
+
+ END DEC9_TO_DB2;
+
+ /*==================================================================*/
+ /* CHR10_TO_DB2: CONVERT CHAR(10) DD.MM.YYYY TO DB2 DATE            */
+ /*         CALL OF CHR10_TO_DB2 ===> DB2_DATE = CHR10_TO_DB2(CHR_10)*/
+ /*==================================================================*/
+
+ CHR10_TO_DB2:PROC (CHR_OLD_FORMAT) RETURNS(CHAR(10));
+
+   DCL  CHR_OLD_FORMAT CHAR    ( 10  )                               ;
+
+   RETURN(SUBSTR(CHR_OLD_FORMAT,7,4) !! '-' !!
+          SUBSTR(CHR_OLD_FORMAT,4,2) !! '-' !!
+          SUBSTR(CHR_OLD_FORMAT,1,2)) ;
+
+ END CHR10_TO_DB2;
+
+ /*==================================================================*/
+ /* DB2_TO_CHR10: CONVERT DB2 DATE TO CHAR(10) DD.MM.YYYY            */
+ /*         CALL OF DB2_TO_CHR10 ===> CHR_10 = DB2_TO_CHR10(DB2_DATE)*/
+ /*==================================================================*/
+
+ DB2_TO_CHR10:PROC (CHR_OLD_FORMAT) RETURNS(CHAR(10));
+
+   DCL  CHR_OLD_FORMAT CHAR    ( 10  )                               ;
+
+   RETURN(SUBSTR(CHR_OLD_FORMAT,9,2) !! '.' !!
+          SUBSTR(CHR_OLD_FORMAT,6,2) !! '.' !!
+          SUBSTR(CHR_OLD_FORMAT,1,4)) ;
+
+
+ END DB2_TO_CHR10;
+
+ /*==================================================================*/
+ /* CHR8_TO_DB2: CONVERT CHAR(8) HHXMMXSS TO CHAR(8) HH.MM.SS        */
+ /*         CALL OF CHR8_TO_DB2 ===> DB2_TIME = CHR8_TO_DB2(CHR8)    */
+ /*==================================================================*/
+
+ CHR8_TO_DB2:PROC (CHR_OLD_FORMAT) RETURNS(CHAR(8));
+
+   DCL  CHR_OLD_FORMAT CHAR    (  8  )                               ;
+   DCL  CHR_HHMMSSXXX  CHAR    (  9  )                               ;
+
+   CHR_HHMMSSXXX = SUBSTR(CHR_OLD_FORMAT,1,2) !!
+                   SUBSTR(CHR_OLD_FORMAT,4,2) !!
+                   SUBSTR(CHR_OLD_FORMAT,7,2) !!
+                   '000'                       ;
+
+   RETURN(CHR9_TO_DB2(CHR_HHMMSSXXX));
+
+
+ END CHR8_TO_DB2;
+
+ /*==================================================================*/
+ /* CHR9_TO_DB2: CONVERT CHAR(9) HHMMSSXXX TO CHAR(8) HH.MM.SS       */
+ /*         CALL OF CHR9_TO_DB2 ===> DB2_TIME = CHR9_TO_DB2(CHR9)    */
+ /*==================================================================*/
+
+ CHR9_TO_DB2:PROC (CHR_HHMMSSXXX) RETURNS(CHAR(8));
+
+   DCL  CHR_HHMMSSXXX CHAR     (  9  )                               ;
+   DCL  CHR_HHMMSS   CHAR      (  6  )      INIT(' ')                ;
+   DCL  DB2_TIME     CHAR      (  8  )      INIT(' ')                ;
+   DCL  FORMAT       CHAR      (  3  )      INIT('ISO')              ;
+   DCL  UFLAG        BIT       (  1  )      INIT('0'B)               ;
+
+   CHR_HHMMSS = SUBSTR(CHR_HHMMSSXXX,1,6);
+
+   CALL RFBZFMM(UFLAG,CHR_HHMMSS,DB2_TIME,FORMAT);
+
+   IF UFLAG THEN DO;
+      PSK(REPEAT('#',80)                    );
+      PSK('INVALID TIME FOR CHR9_TO_DB2:  ');
+      PSK('CFL-NAME      = ',SUBSTR(SPA.CFLK1,4,30));
+      PSK('MEMBER-NAME   = ',SPA.RULE_NAME);
+      PSK('WHEN-CLAUSE   = ',SUBSTR(SPA.PARM1,4,7));
+      PSK('TIME SUPPLIED = ',CHR_HHMMSSXXX );
+      PSK('SIGNAL ERROR RAISED'             );
+      PSK(REPEAT('#',80)                    );
+      SIGNAL ERROR;
+   END;
+
+   RETURN(DB2_TIME);
+
+ END CHR9_TO_DB2;
+
+ /*==================================================================*/
+ /* MAX_DB2_DAT: CONVERT '999999'       TO CHAR(10) YYYY=MM=DD       */
+ /*              CALL OF MAX_DB2_DAT ===> DB2_DATE = MAX_DB2_DAT()   */
+ /*==================================================================*/
+
+ %DEACT MAX_DB2_DAT;
+ MAX_DB2_DAT:PROC    RETURNS(CHAR(10));
+
+   RETURN(CHR6_TO_DB2('999999'));
+
+ END MAX_DB2_DAT;
+ %ACT MAX_DB2_DAT;
+
+ /*==================================================================*/
+ /* MIN_DB2_DAT: CONVERT '000000'       TO CHAR(10) YYYY=MM=DD       */
+ /*              CALL OF MIN_DB2_DAT ===> DB2_DATE = MIN_DB2_DAT()   */
+ /*==================================================================*/
+
+ %DEACT MIN_DB2_DAT;
+ MIN_DB2_DAT: PROC   RETURNS(CHAR(10));
+
+   RETURN(CHR6_TO_DB2('000000'));
+
+ END MIN_DB2_DAT;
+ %ACT MIN_DB2_DAT;
+
+ /*==================================================================*/
+ /* MIN_DB2_TMP: RETURNS LOWEST TIMESTAMP  CHAR(26) HH.MM.SS         */
+ /*              CALL OF MIN_DB2_TMP ===> DB2_TSTMP = MIN_DB2_TMP()  */
+ /*==================================================================*/
+
+ %DEACT MIN_DB2_TMP;
+ MIN_DB2_TMP: PROC   RETURNS(CHAR(26));
+
+   RETURN(MIN_DB2_DAT() !! '-00.00.00.000000');
+
+ END MIN_DB2_TMP;
+ %ACT MIN_DB2_TMP;
+
+ /*==================================================================*/
+ /* MAX_DB2_TMP: RETURNS HIGHEST TIMESTAMP  CHAR(26) HH.MM.SS        */
+ /*              CALL OF MAX_DB2_TMP ===> DB2_TSTMP = MAX_DB2_TMP()  */
+ /*==================================================================*/
+
+ %DEACT MAX_DB2_TMP;
+ MAX_DB2_TMP: PROC   RETURNS(CHAR(26));
+
+   RETURN(MAX_DB2_DAT() !! '-23.59.59.999999');
+
+ END MAX_DB2_TMP;
+ %ACT MAX_DB2_TMP;
+
+ /*==================================================================*/
+ /* MIN_DB2_TIM: CONVERT '000000000'    TO CHAR(8) HH.MM.SS          */
+ /*              CALL OF MIN_DB2_TIM ===> DB2_TIME = MIN_DB2_TIM()   */
+ /*==================================================================*/
+
+ %DEACT MIN_DB2_TIM;
+ MIN_DB2_TIM: PROC   RETURNS(CHAR(8));
+
+   RETURN(CHR9_TO_DB2('000000000'));
+
+ END MIN_DB2_TIM;
+ %ACT MIN_DB2_TIM;
+
+ /*==================================================================*/
+ /* RUN_DAT_TMP: RETURNS CURRENT TIMESTAMP IN CHAR (26)              */
+ /*              CALLS RFBZDVM                                       */
+ /*==================================================================*/
+
+ RUN_DAT_TMP: PROC   RETURNS(CHAR(26));
+
+   DCL C_DATTIME     CHAR(17),
+       C_DATE        CHAR(6) DEF C_DATTIME POS(3),
+       C_TIME        CHAR(9) DEF C_DATTIME POS(9);
+   DCL  1 CURTIME    BASED(ADDR(C_TIME))                             ,
+        2 HOUR       CHAR      (  2  )                               ,
+        2 MINUTE     CHAR      (  2  )                               ,
+        2 SECOND     CHAR      (  2  )                               ,
+        2 MILISEC    PIC       '999'                                 ;
+   DCL  DB2_TSTAMP   CHAR      (  26 )                               ;
+   DCL  1 STMP_OVL   BASED(ADDR(DB2_TSTAMP))                         ,
+          2 DB2_DAT  CHAR      ( 10  )                               ,
+          2 DASH     CHAR      (  1  )                               ,
+          2 HOUR     PIC       '99'                                  ,
+          2 PD1      CHAR      (  1  )                               ,
+          2 MINUTE   PIC       '99'                                  ,
+          2 PD2      CHAR      (  1  )                               ,
+          2 SECOND   PIC       '99'                                  ,
+          2 PD3      CHAR      (  1  )                               ,
+          2 NANOSEC  PIC       '999999'                              ;
+
+   DASH = '-';
+   PD1,PD2,PD3 = '.';
+
+   C_DATTIME = DATETIME;
+   IF SPA.RUNDATE ^= ''
+   THEN C_DATE = SPA.RUNDATE;
+
+
+   STMP_OVL.NANOSEC = CURTIME.MILISEC * 1000;
+   ADDR(STMP_OVL.SECOND)->CHAR2  = CURTIME.SECOND;
+   ADDR(STMP_OVL.MINUTE)->CHAR2  = CURTIME.MINUTE;
+   ADDR(STMP_OVL.HOUR)->CHAR2    = CURTIME.HOUR;
+   STMP_OVL.DB2_DAT = CHR6_TO_DB2(C_DATE);
+
+   RETURN(DB2_TSTAMP);
+
+ END RUN_DAT_TMP;
+
+ /*==================================================================*/
+ /* CUR_DAT_TIM: RETURNS CURRENT DATE AND TIME IN DEC FIXED (15)     */
+ /*              CALLS RFBZDVM                                       */
+ /*==================================================================*/
+
+ CUR_DAT_TIM: PROC   RETURNS(DEC FIXED(15));
+
+   RETURN(RFBZDVM());
+
+ END CUR_DAT_TIM;
+
+ /*==================================================================*/
+ /* RUN_DAT_TIM: RETURNS DATE AND TIME IN DEC FIXED (15)             */
+ /*              IF SPA.RUNDATE = '' RETURNS CURRENT DATE            */
+ /*==================================================================*/
+
+ RUN_DAT_TIM: PROC   RETURNS(DEC FIXED(15));
+
+   DCL  PIC_RUNDATE  PIC       '999999'      BASED(ADDR(SPA.RUNDATE));
+   DCL  DEC_DAT_TIM  DEC FIXED ( 15  )                               ;
+
+    DEC_DAT_TIM = RFBZDVM();
+    IF SPA.RUNDATE ^= '' THEN DO;
+       DEC_DAT_TIM = PIC_RUNDATE * 1000000000 +
+                     MOD(DEC_DAT_TIM,1000000000);
+    END;
+
+    RETURN(DEC_DAT_TIM);
+
+ END RUN_DAT_TIM;
+
+ /*==================================================================*/
+ /* UNIQUE_ID: RETURNS DATE AND TIME IN DEC FIXED (15)               */
+ /*            FORMAT YYDDDHHMMSSTTT                                 */
+ /*            IF SPA.RUNDATE = '' RETURNS CURRENT DATE              */
+ /*==================================================================*/
+
+ UNIQUE_ID: PROC     RETURNS(DEC FIXED(15));
+
+   DCL  DEC_YYDDD    DEC FIXED (  5  )      INIT(0)                  ;
+   DCL  DEC_YYYYDDD  DEC FIXED (  7  )      INIT(0)                  ;
+   DCL  PIC_YYMMDD   PIC       '999999'     DEF CHR_YYMMDD           ;
+   DCL  CHR_YYMMDD   CHAR      (  6  )      INIT((6)'0')             ;
+   DCL  PIC_RUNDATE  PIC       '999999'     BASED(ADDR(SPA.RUNDATE)) ;
+   DCL  DEC_DAT_TIM  DEC FIXED ( 15  )                               ;
+   DCL  SAV_DAT_TIM  DEC FIXED ( 15  )      STATIC INIT(0)           ;
+
+    DEC_DAT_TIM = RFBZDVM();
+
+    /*DO WHILE (SAV_DAT_TIM = DEC_DAT_TIM);
+       DEC_DAT_TIM = RFBZDVM();
+    END;*/
+
+    SAV_DAT_TIM = DEC_DAT_TIM;
+
+    IF SPA.RUNDATE ^= '' THEN DO;
+       DEC_DAT_TIM = PIC_RUNDATE * 1000000000
+                   + MOD(DEC_DAT_TIM,1000000000);
+    END;
+
+    PIC_YYMMDD  = DEC_DAT_TIM /  1000000000;
+    DEC_YYYYDDD = RFBZDCM(RFBZDKM(CHR_YYMMDD)) - 1990000;
+    DEC_YYDDD   = RFBZDWM(DEC_YYYYDDD);
+
+    RETURN(DEC_YYDDD * 1000000000 + MOD(DEC_DAT_TIM,1000000000));
+
+ END UNIQUE_ID;
+
+ /*==================================================================*/
+ /* UNIQUE_IR: RETURNS DATE AND TIME IN DEC FIXED (15)               */
+ /*            FORMAT TTTSSMMHHDDDYY                                 */
+ /*            IF SPA.RUNDATE = '' RETURNS CURRENT DATE              */
+ /*==================================================================*/
+
+ UNIQUE_IR: PROC     RETURNS(DEC FIXED(15));
+
+    DCL  DEC_UNIQUE_IR    DEC FIXED ( 15  );
+                                             /* UNIDRV01 CHANGES */
+    DEC_UNIQUE_IR = NEW_UNIQUE_IR(UNIQUE_ID());
+
+    RETURN(DEC_UNIQUE_IR);
+
+ END UNIQUE_IR;
+
+ /*==================================================================*/
+ /* DIF_DAT_TIM: RETURNS THE DEC FIXED (15) DIFFERENCE BETWEEN TWO   */
+ /*              DEC FIXED (15) DATE-TIMES                           */
+ /*==================================================================*/
+
+ DIF_DAT_TIM: PROC   RETURNS(DEC FIXED(15));
+
+   RETURN(RFBZDVM());
+
+ END DIF_DAT_TIM;
+
+ /*==================================================================*/
+ /* FLD_FREEZE: FREEZE FIELD ON SCREEN                               */
+ /*==================================================================*/
+ /* õõSHSPA.õõMCSNTYS ... NUMBER OF FIELDS ON SCREEN                 */
+ /* õõSHSPA.õõMCSNTRYL .. LENGTH OF MCSSLOT STRUCTURE                */
+ /* õ#CWA.õ#MCSPTR ...... POINTER TO FIRST ALLOCATED MCSSLOT         */
+ /* MCSSLOT ............. DESCRIBES SCREEN FIELD ATTRIBUTES          */
+ /*                       1 ALLOCATED STRUCTURE PER FIELD            */
+ /*==================================================================*/
+
+ FLD_FREEZE:PROC (FLD_NAM);
+
+   DCL  FLD_NAM      CHAR      (  8  )                               ;
+   DCL  MCS_PTR      PTR                                             ;
+
+   MCS_PTR = GET_MCSPTR(FLD_NAM);
+
+   IF MCS_PTR ^= ##NULLPTR THEN DO;
+      MCS_PTR->#$FRZFD = '1'B;
+   END;
+
+ END FLD_FREEZE;
+ /*==================================================================*/
+ /* FLD_HIGHLITE : HIGHLIGHT AN INPUT FIELD ON SCREEN                */
+ /*==================================================================*/
+ /* õõSHSPA.õõMCSNTYS ... NUMBER OF FIELDS ON SCREEN                 */
+ /* õõSHSPA.õõMCSNTRYL .. LENGTH OF MCSSLOT STRUCTURE                */
+ /* õ#CWA.õ#MCSPTR ...... POINTER TO FIRST ALLOCATED MCSSLOT         */
+ /* MCSSLOT ............. DESCRIBES SCREEN FIELD ATTRIBUTES          */
+ /*                       1 ALLOCATED STRUCTURE PER FIELD            */
+ /*==================================================================*/
+
+ FLD_HIGHLITE:PROC (FLD_NAM);
+
+   DCL  FLD_NAM      CHAR      (  8  )                               ;
+   DCL  MCS_PTR      PTR                                             ;
+
+   MCS_PTR = GET_MCSPTR(FLD_NAM);
+
+   IF MCS_PTR ^= ##NULLPTR THEN DO;
+      MCS_PTR->#$HIFLD = '1'B;
+   END;
+
+ END FLD_HIGHLITE;
+
+ /*==================================================================*/
+ /* GET_FLDPTR: RETIRVE POINTER TO INPUT FIELD AREA OF PASSED FLDNAME*/
+ /*==================================================================*/
+
+ GET_FLDPTR:PROC (FLD_NAM) RETURNS(PTR);
+
+   DCL  I            BIN FIXED ( 31  )                               ;
+   DCL  OFF_MCSSLOT  BIN FIXED ( 31  )                               ;
+   DCL  PTR_MCSSLOT  PTR                                             ;
+   DCL  FLD_PTR      PTR                                             ;
+   DCL  FLD_NAM      CHAR      (  8  )                               ;
+   DCL  FLD_FND      BIT       (  1  )                               ;
+
+   DCL  1 MASK       BASED(ADDR(õ#OCUR))                             ,
+          2 BIT_8_1  BIT       (  8  )                               ,
+          2 BIT_8_2  BIT       (  8  )                               ;
+
+   FLD_FND     = '0'B          ;
+   FLD_PTR     = ##NULLPTR     ;
+   OFF_MCSSLOT =  0            ;
+   PTR_MCSSLOT = õ#CWA.õ#MCSPTR;
+
+   DO I=1 TO õõSHSPA.õõMCSNTYS WHILE(^FLD_FND);
+
+      SELECT;
+         WHEN(PTR_MCSSLOT->#$FNAME ^= FLD_NAM);
+         WHEN((PTR_MCSSLOT->#$SUFIX = '00000000'B)
+         !    (MASK.BIT_8_2 = PTR_MCSSLOT->#$SUFIX))
+            FLD_FND = '1'B ;
+         OTHERWISE;
+      END;
+
+      IF FLD_FND THEN DO;
+         FLD_PTR     = õ#CWA.õ#IFAPTR;
+         OFF_MCSSLOT = PTR_MCSSLOT->#$DAPOS-1;
+         FLD_PTR     = ADDR(FLD_PTR->õ$PLUS(OFF_MCSSLOT));
+      END;
+      ELSE DO;
+         PTR_MCSSLOT=ADDR(PTR_MCSSLOT->õ$PLUS(õõSHSPA.õõMCSNTRYL));
+      END;
+   END;
+
+   IF ^FLD_FND THEN DO;
+      QCHMSG('045',SPA.RULE_NAME!!','!!SUBSTR(FLD_NAM,1,7),,12);
+   END;
+
+   RETURN(FLD_PTR);
+
+ END GET_FLDPTR;
+
+ /*==================================================================*/
+ /* GET_MCSPTR: RETRIEVE MCS POINTER OF PASSED FIELD NAME            */
+ /*==================================================================*/
+
+ GET_MCSPTR:PROC (FLD_NAM) RETURNS(PTR);
+
+   DCL  I            BIN FIXED ( 31  )                               ;
+   DCL  LNE_CNT      BIN FIXED ( 15  )                               ;
+   DCL  OFF_MCSSLOT  BIN FIXED ( 31  )                               ;
+   DCL  PTR_MCSSLOT  PTR                                             ;
+   DCL  FLD_PTR      PTR                                             ;
+   DCL  FLD_NAM      CHAR      (  8  )                               ;
+   DCL  FLD_FND      BIT       (  1  )                               ;
+
+   DCL  1  MASK      BASED(ADDR(LNE_CNT)) ,
+           2  BIT_8_1   BIT  (  8  ) ,
+           2  BIT_8_2   BIT  (  8  )
+           ;
+
+
+   FLD_FND     = '0'B          ;
+   FLD_PTR     = ##NULLPTR     ;
+   OFF_MCSSLOT =  0            ;
+   PTR_MCSSLOT = õ#CWA.õ#MCSPTR;
+
+   IF õõOIPARM = 'O' THEN
+      LNE_CNT = õ#OCUR      ;
+   IF õõOIPARM = 'I' THEN
+      LNE_CNT = SPA.LNECNTI ;
+
+   DO I=1 TO õõSHSPA.õõMCSNTYS WHILE(^FLD_FND);
+
+      SELECT;
+         WHEN(PTR_MCSSLOT->#$FNAME ^= FLD_NAM);
+         WHEN((PTR_MCSSLOT->#$SUFIX = '00000000'B)
+         !    (MASK.BIT_8_2 = PTR_MCSSLOT->#$SUFIX))
+            FLD_FND = '1'B ;
+         OTHERWISE;
+      END;
+
+      IF FLD_FND THEN DO;
+         FLD_PTR     = PTR_MCSSLOT;
+      END;
+      ELSE DO;
+         PTR_MCSSLOT = ADDR(PTR_MCSSLOT->õ$PLUS(õõSHSPA.õõMCSNTRYL));
+      END;
+   END;
+
+   IF ^FLD_FND THEN DO;
+      FLD_PTR = ##NULLPTR;
+      QCHMSG('045',SPA.RULE_NAME!!','!!SUBSTR(FLD_NAM,1,7),,12);
+   END;
+
+   RETURN(FLD_PTR);
+
+ END GET_MCSPTR;
+
+ /*===================================================================*/
+ /* FLD_FRZALL: FREEZES ALL INPUT FIELDS                              */
+ /*===================================================================*/
+
+ FLD_FRZALL:PROC;
+
+   DCL  I            BIN FIXED ( 31  )                               ;
+   DCL  PTR_MCSSLOT  PTR                                             ;
+
+   PTR_MCSSLOT = õ#CWA.õ#MCSPTR;
+
+   DO I=1 TO õõSHSPA.õõMCSNTYS;
+
+      PTR_MCSSLOT->#$FRZFD = '1'B;
+
+      PTR_MCSSLOT = ADDR(PTR_MCSSLOT->õ$PLUS(õõSHSPA.õõMCSNTRYL));
+   END;
+
+ END FLD_FRZALL;
+
+ /*===================================================================*/
+ /* ISU_ERR_MSG: FREEZES ALL INPUT FIELDS                             */
+ /*===================================================================*/
+
+ ISU_ERR_MSG:PROC (FLD_NAM);
+
+   DCL  MCS_PTR      PTR                                             ;
+   DCL  FLD_NAM      CHAR      (  8  )                               ;
+
+
+   MCS_PTR = ##NULLPTR;
+
+   IF SPA.DMSGNO ^= ''
+   &  SPA.MSG_DEFERRED THEN DO
+      SPA.MSG_DEFERRED = '0'B;
+   END;
+
+   IF SPA.RUN_MODE ^= 'G' THEN DO;
+     IF FLD_NAM ^= '' THEN DO;
+        MCS_PTR = GET_MCSPTR(FLD_NAM);
+        IF MCS_PTR = ##NULLPTR THEN DO;
+           SPA.VARTXT = SUBSTR(SPA.RULE_NAME!!','!!FLD_NAM,1,
+                                                   LENGTH(SPA.VARTXT));
+           SPA.MSGNO  = '045';
+           SPA.MSGSEV = 'D'  ;
+        END;
+     END;
+   END;
+
+   CALL QCHRE1M(MCS_PTR,'QCH' !! SPA.MSGNO,SPA.MSGSEV,SPA.VARTXT);
+
+ END ISU_ERR_MSG;
+
+ /*==================================================================*/
+ /* SET_CURSOR: SET CURSOR TO CERTAIN FIELD AFTER SCREEN IS DISPLAYED*/
+ /*==================================================================*/
+
+ SET_CURSOR:PROC (FLD_NAM);
+
+   DCL  FLD_NAM      CHAR      (  8  )                               ;
+   DCL  MCS_PTR      PTR                                             ;
+
+   MCS_PTR = GET_MCSPTR(FLD_NAM);
+
+   IF MCS_PTR ^= ##NULLPTR THEN DO;
+      õ#CURFLD = FLD_NAM;
+   END;
+
+ END SET_CURSOR;
+
+ /*==================================================================*/
+ /* SET_DAY: EDIT SPECIFIC DAY INTO DECIMAL(6) DATE-FIELD (YYMMDD)   */
+ /*          FOR A DECIMAL(6) DATE IN FORMAT YYMMDD                  */
+ /*          CALL OF SET_DAY ---> CALL SET_DAY(XXX_DATE,15)          */
+ /*==================================================================*/
+
+ SET_DAY:PROC (WORKDATE,VALUE);
+
+   DCL  WORKDATE  DEC FIXED    (  6  )                               ;
+   DCL  VALUE     DEC FIXED    (  3  )                               ;
+
+   WORKDATE = WORKDATE - DAY(WORKDATE);   /* 890705 ==> 890700  */
+   WORKDATE = DATEADD(WORKDATE,VALUE,'D');
+
+ END SET_DAY;
+
+ /*==================================================================*/
+ /* RND_BEF_AFT: ROUND DECIMAL(15,4) AMOUNT DUE TO RULES IN CHAR(3)  */
+ /*                                                                  */
+ /* CALL OF RND_BEF_AFT --> AMTNEW = RND_BEF_AFT(AMTOLD,TCO.CCTYRND) */
+ /*                                                                  */
+ /*           AMTNEW/AMTOLD ... AMOUNT FIELDS DECIMAL(15,4)          */
+ /*           CODE ............ PRECISSION ('ROUND_BEFORE'!!'.'!!    */
+ /*                                         'ROUND_AFTER_DEC_POINT') */
+ /*==================================================================*/
+
+ RND_BEF_AFT:PROC (AMOUNT,CHR_B_A) RETURNS (DEC FIXED(15,2));
+
+    DCL  DEC_1502    DEC FIXED ( 15,2)                               ;
+    DCL  AMOUNT      DEC FIXED ( 15,4)                               ;
+    DCL  CHR_B_A     CHAR      (  3  )                               ;
+    DCL  CNT_R_B     DEC FIXED ( 10  )                               ;
+
+    DCL  CHR_3           CHAR      ( 3 ),
+         1 CHR_H         DEF CHR_3,
+           2 CHR_R_B     CHAR      (  1  ),
+           2 CHR_F1      CHAR      (  1  ),
+           2 CHR_R_A     CHAR      (  1  );
+
+    CHR_3 = CHR_B_A;
+
+    IF INDEX('0123456789',CHR_R_B) = 0 THEN DO;
+       CHR_R_B = '0';
+    END;
+    IF INDEX('012',CHR_R_A) = 0 THEN DO;
+       CHR_R_A = '2';
+    END;
+
+
+    IF CHR_R_B = '0' THEN DO;
+       SELECT(CHR_R_A);
+         WHEN('0') DEC_1502 = ROUND(AMOUNT,0);
+         WHEN('1') DEC_1502 = ROUND(AMOUNT,1);
+         WHEN('2') DEC_1502 = ROUND(AMOUNT,2);
+       END;
+    END;
+    ELSE DO;
+ /*------------------------------------------------------------------*/
+ /* After IBM(R) Enterprise PL/I for z/OS V5.R1.M0 installation      */
+ /* NOLAXSCALE option restrict negative scale                        */
+ /* Error Message : IBM2452I Scale factor is less than 0             */
+ /*------------------------------------------------------------------*/
+         CNT_R_B = DEC('1'!!COPY('0',DEC(CHR_R_B)));
+         DEC_1502 = CNT_R_B * round( AMOUNT/CNT_R_B, 0 );
+     /*SELECT(CHR_R_B);
+         WHEN('1') DEC_1502 = ROUND(AMOUNT,-1);
+         WHEN('2') DEC_1502 = ROUND(AMOUNT,-2);
+         WHEN('3') DEC_1502 = ROUND(AMOUNT,-3);
+         WHEN('4') DEC_1502 = ROUND(AMOUNT,-4);
+         WHEN('5') DEC_1502 = ROUND(AMOUNT,-5);
+         WHEN('6') DEC_1502 = ROUND(AMOUNT,-6);
+         WHEN('7') DEC_1502 = ROUND(AMOUNT,-7);
+         WHEN('8') DEC_1502 = ROUND(AMOUNT,-8);
+         WHEN('9') DEC_1502 = ROUND(AMOUNT,-9);
+       END;*/
+    END;
+
+    RETURN(DEC_1502);
+
+ END RND_BEF_AFT;
+
+ /*==================================================================*/
+ /* RND_BEF_AFT_152: ROUND DECIMAL(15,2) AMOUNT DUE TO RULES IN CH(3)*/
+ /*                                                                  */
+ /* CALL OF RND_BEF_AFT_152 -->                                      */
+ /*                     AMTNEW = RND_BEF_AFT_152(AMTOLD,TCO.CCTYRND) */
+ /*                                                                  */
+ /*           AMTNEW/AMTOLD ... AMOUNT FIELDS DECIMAL(15,2)          */
+ /*           CODE ............ PRECISSION ('ROUND_BEFORE'!!'.'!!    */
+ /*                                         'ROUND_AFTER_DEC_POINT') */
+ /*==================================================================*/
+
+ RND_BEF_AFT_152:PROC (AMOUNT,CHR_B_A) RETURNS (DEC FIXED(15,2));
+
+    DCL  DEC_1502    DEC FIXED ( 15,2)                               ;
+    DCL  AMOUNT      DEC FIXED ( 15,2)                               ;
+    DCL  CHR_B_A     CHAR      (  3  )                               ;
+    DCL  CNT_R_B     DEC FIXED ( 10  )                               ;
+
+    DCL  CHR_3           CHAR      ( 3 ),
+         1 CHR_H         DEF CHR_3,
+           2 CHR_R_B     CHAR      (  1  ),
+           2 CHR_F1      CHAR      (  1  ),
+           2 CHR_R_A     CHAR      (  1  );
+
+    CHR_3 = CHR_B_A;
+
+    IF INDEX('0123456789',CHR_R_B) = 0 THEN DO;
+       CHR_R_B = '0';
+    END;
+    IF INDEX('012',CHR_R_A) = 0 THEN DO;
+       CHR_R_A = '2';
+    END;
+
+
+    IF CHR_R_B = '0' THEN DO;
+       SELECT(CHR_R_A);
+         WHEN('0') DEC_1502 = ROUND(AMOUNT,0);
+         WHEN('1') DEC_1502 = ROUND(AMOUNT,1);
+         WHEN('2') DEC_1502 = ROUND(AMOUNT,2);
+       END;
+    END;
+    ELSE DO;
+ /*------------------------------------------------------------------*/
+ /* After IBM(R) Enterprise PL/I for z/OS V5.R1.M0 installation      */
+ /* NOLAXSCALE option restrict negative scale                        */
+ /* Error Message : IBM2452I Scale factor is less than 0             */
+ /*------------------------------------------------------------------*/
+      CNT_R_B = DEC('1'!!COPY('0',DEC(CHR_R_B)));
+      DEC_1502 = CNT_R_B * round( AMOUNT/CNT_R_B, 0 );
+    /* SELECT(CHR_R_B);
+         WHEN('1') DEC_1502 = ROUND(AMOUNT,-1);
+         WHEN('2') DEC_1502 = ROUND(AMOUNT,-2);
+         WHEN('3') DEC_1502 = ROUND(AMOUNT,-3);
+         WHEN('4') DEC_1502 = ROUND(AMOUNT,-4);
+         WHEN('5') DEC_1502 = ROUND(AMOUNT,-5);
+         WHEN('6') DEC_1502 = ROUND(AMOUNT,-6);
+         WHEN('7') DEC_1502 = ROUND(AMOUNT,-7);
+         WHEN('8') DEC_1502 = ROUND(AMOUNT,-8);
+         WHEN('9') DEC_1502 = ROUND(AMOUNT,-9);
+       END; */
+    END;
+
+    RETURN(DEC_1502);
+
+ END RND_BEF_AFT_152;
+
+ /*==================================================================*/
+ /* PERCENT: CALCULATE DECIMAL(15,4) AMOUNT + - * (CODE)             */
+ /*                    DECIMAL(15,12) PERCENTAGE                     */
+ /*                                                                  */
+ /*           CALL OF PERCENT  ---> AMTNEW = PERCENT(AMTOLD,P%,CODE) */
+ /*                                                                  */
+ /*           AMTNEW/AMTOLD ... AMOUNT FIELDS DECIMAL(15,4)          */
+ /*           P% .............. PERCENTAGE DECIMAL(15,12)            */
+ /*           CODE 1........... + - *                                */
+ /*           CODE 2........... PRECISSION BEF.AFT                   */
+ /*==================================================================*/
+
+ PERCENT:PROC (AMOUNT,PERC,CODE  ) RETURNS (DEC FIXED(15,2));
+
+   DCL  AMOUNT       DEC FIXED ( 15,4)                               ;
+   DCL  PERC         DEC FIXED ( 15,12)                              ;
+   DCL  CODE         CHAR      (  4  )                               ;
+   DCL  CHR_B_A      CHAR      (  3  )                               ;
+   DCL  DEC_1502     DEC FIXED ( 15,2)                               ;
+   DCL  DEC_1504     DEC FIXED ( 15,4)                               ;
+   DCL  DEC_1512     DEC FIXED ( 15,12)                              ;
+   DCL  DEC_1514     DEC FIXED ( 15,14)                              ;
+
+   SELECT(SUBSTR(CODE,1,1));
+      WHEN('+') DO;
+         DEC_1512 = 100 + PERC;
+      END;
+      WHEN('-') DO;
+         DEC_1512 = 100 - PERC;
+      END;
+      WHEN('*') DO;
+         DEC_1512 = PERC;
+      END;
+      OTHERWISE DO;
+         DEC_1512 = 100;
+      END;
+   END;
+
+   DEC_1514 = DIVIDE (DEC_1512,100,15,14);
+   DEC_1504 = MULTIPLY(AMOUNT,DEC_1514,15, 4);
+
+   CHR_B_A  = SUBSTR(CODE,2,3);
+   DEC_1502 = RND_BEF_AFT(DEC_1504,CHR_B_A);
+
+   RETURN(DEC_1502);
+
+ END PERCENT;
+
+ /*==================================================================*/
+ /* PERCENT2: CALCULATE DISCOUNT FOR DECIMAL(15,2) AMOUNT            */
+ /*                                                                  */
+ /*           CALL OF PERCENT2 ---> AMTNEW = PERCENT2(AMTOLD,P%,PRC) */
+ /*                                                                  */
+ /*           AMTNEW/AMTOLD ... AMOUNT FIELDS DECIMAL(15,2)          */
+ /*           P% .............. PERCENTAGE DECIMAL(5,2)              */
+ /*           PRC ............. PRECISSION DECIMAL(1,0)              */
+ /*==================================================================*/
+
+ PERCENT2:PROC (AMOUNT,PERC,I  ) RETURNS (DEC FIXED(15,2));
+
+    DCL AMOUNT    DEC FIXED (15,2);
+    DCL PERC      DEC FIXED ( 5,2);
+    DCL I         DEC FIXED ( 1,0);
+    DCL TEMP_CALC DEC FIXED (15,4);
+
+    TEMP_CALC = DIVIDE  (AMOUNT   ,100 ,15,4);
+    TEMP_CALC = MULTIPLY(TEMP_CALC,PERC,15,4);
+    SELECT(I);
+       WHEN(0) TEMP_CALC = ROUND(TEMP_CALC,0);
+       WHEN(1) TEMP_CALC = ROUND(TEMP_CALC,1);
+       WHEN(2) TEMP_CALC = ROUND(TEMP_CALC,2);
+       WHEN(3) TEMP_CALC = ROUND(TEMP_CALC,3);
+       WHEN(4) TEMP_CALC = ROUND(TEMP_CALC,4);
+    END;
+
+    RETURN(TEMP_CALC);
+
+ END PERCENT2;
+
+ /*==================================================================*/
+ /* PCT_SUM_ALIGN: CALCULATE DECIMAL(15,4) AMOUNT + - (CODE)         */
+ /*                    DECIMAL(15,12) PERCENTAGE AND ADJUST IT LIKE  */
+ /*                    THE SUM                                       */
+ /*                                                                  */
+ /*           CALL OF PCT_SUM_ALIGN  --->                            */
+ /*           AMTNEW = PCT_SUM_ALIGN(AMTOLD,P%,CODE,SUMOLD,SUMNEW)   */
+ /*                                                                  */
+ /*           AMTOLD .......... AMOUNT FIELDS DECIMAL(15,4)          */
+ /*           AMTNEW .......... AMOUNT FIELDS DECIMAL(15,2)          */
+ /*           SUMNEW/SUMOLD ... SUM    FIELDS DECIMAL(15,2)          */
+ /*           P% .............. PERCENTAGE DECIMAL(15,12)            */
+ /*           CODE 1........... + -                                  */
+ /*           CODE 2........... PRECISSION BEF.AFT                   */
+ /*==================================================================*/
+
+ PCT_SUM_ALIGN:PROC (AMOUNT,PERC,CODE,SUM_OLD_I,SUM_NEW_I)
+               RETURNS (DEC FIXED(15,2));
+
+   DCL  AMOUNT       DEC FIXED ( 15,4);
+   DCL  SUM_OLD_I    DEC FIXED ( 15,2);
+   DCL  SUM_NEW_I    DEC FIXED ( 15,2);
+   DCL  SUM_NEW_B    DEC FIXED ( 15,2);
+   DCL  PERC         DEC FIXED ( 15,12);
+   DCL  CODE         CHAR      (  4  );
+   DCL  CHR_B_A      CHAR      (  3  );
+   DCL  DEC_1502     DEC FIXED ( 15,2);
+   DCL  DEC_1504     DEC FIXED ( 15,4);
+
+   PSK('AO',AMOUNT,'P',PERC,CODE,'IO',SUM_OLD_I,'IN',SUM_NEW_I);
+ /*---------------------------------------------------------------*/
+ /* APPLY PERCENTAGE ON ITEM BASE AMOUNT TO GET NEW ITEM AMOUNT   */
+ /*---------------------------------------------------------------*/
+   DEC_1502 = PERCENT(AMOUNT,PERC,CODE);
+
+ /*---------------------------------------------------------------*/
+ /* ADD ITEM BASE AMOUNT TO SUM BASE AMOUNT                       */
+ /*---------------------------------------------------------------*/
+   SUM_OLD_I = SUM_OLD_I + AMOUNT;
+
+ /*---------------------------------------------------------------*/
+ /* ADD NEW ITEM AMOUNT TO NEW SUM AMOUNT                         */
+ /*---------------------------------------------------------------*/
+   SUM_NEW_I = SUM_NEW_I + DEC_1502;
+
+ /*---------------------------------------------------------------*/
+ /* APPLY PERCENTAGE ON SUM BASE AMOUNT TO GET NEW SUM AMOUNT     */
+ /*---------------------------------------------------------------*/
+   DEC_1504  = SUM_OLD_I;
+   SUM_NEW_B = PERCENT(DEC_1504,PERC,CODE);
+
+   PSK('AN',DEC_1502,'IO',SUM_OLD_I,'IN',SUM_NEW_I,'BN',SUM_NEW_B);
+ /*---------------------------------------------------------------*/
+ /* GET DIFFERENCE BETWEEN THE BOTH NEW SUM AMOUNTS               */
+ /*  AND ADD IT TO THE NEW ITEM AMOUNT                            */
+ /*---------------------------------------------------------------*/
+   DEC_1502 = DEC_1502 - SUM_NEW_I + SUM_NEW_B ;
+
+   RETURN(DEC_1502);
+
+ END PCT_SUM_ALIGN;
+
+ /*==================================================================*/
+ /* PCT_PCT_ALIGN: CALCULATE DECIMAL(15,4) AMOUNT * (CODE)           */
+ /*                    DECIMAL(15,12) PERCENTAGE AND ADJUST IT LIKE  */
+ /*                    THE SUM                                       */
+ /*                                                                  */
+ /*           CALL OF PCT_PCT_ALIGN  --->                            */
+ /*           AMTNEW = PCT_PCT_ALIGN(AMTOLD,P%,CODE,PCTSUM,SUMNEW)   */
+ /*                                                                  */
+ /*           AMTOLD .......... AMOUNT FIELDS DECIMAL(15,4)          */
+ /*           AMTNEW .......... AMOUNT FIELDS DECIMAL(15,2)          */
+ /*           SUMNEW .......... SUM    FIELDS DECIMAL(15,2)          */
+ /*           PCTSUM .......... PERCENTAGE SUM FIELDS DECIMAL(15,12) */
+ /*           P% .............. PERCENTAGE DECIMAL(15,12)            */
+ /*           CODE 1........... *                                    */
+ /*           CODE 2........... PRECISSION BEF.AFT                   */
+ /*==================================================================*/
+
+ PCT_PCT_ALIGN:PROC (AMOUNT,PERC,CODE,PCT_SUM_I,SUM_NEW_I)
+               RETURNS (DEC FIXED(15,2));
+
+   DCL  AMOUNT       DEC FIXED ( 15,4);
+   DCL  PCT_SUM_I    DEC FIXED ( 15,12);
+   DCL  SUM_NEW_I    DEC FIXED ( 15,2);
+   DCL  SUM_NEW_B    DEC FIXED ( 15,2);
+   DCL  PERC         DEC FIXED ( 15,12);
+   DCL  CODE         CHAR      (  4  );
+   DCL  CHR_B_A      CHAR      (  3  );
+   DCL  DEC_1502     DEC FIXED ( 15,2);
+   DCL  DEC_1504     DEC FIXED ( 15,4);
+
+   PSK('AO',AMOUNT,'P',PERC,CODE,'IO',PCT_SUM_I,'IN',SUM_NEW_I);
+ /*---------------------------------------------------------------*/
+ /* APPLY PERCENTAGE ON ITEM BASE AMOUNT TO GET NEW ITEM AMOUNT   */
+ /*---------------------------------------------------------------*/
+   DEC_1502 = PERCENT(AMOUNT,PERC,CODE);
+
+ /*---------------------------------------------------------------*/
+ /* ADD PERCENTAGE TO PERCENTAGE SUM                              */
+ /*---------------------------------------------------------------*/
+   PCT_SUM_I = PCT_SUM_I + PERC;
+
+ /*---------------------------------------------------------------*/
+ /* ADD NEW ITEM AMOUNT TO NEW SUM AMOUNT                         */
+ /*---------------------------------------------------------------*/
+   SUM_NEW_I = SUM_NEW_I + DEC_1502;
+
+ /*---------------------------------------------------------------*/
+ /* APPLY SUM PERCENTAGE ON AMOUNT TO GET NEW SUM AMOUNT          */
+ /*---------------------------------------------------------------*/
+   SUM_NEW_B = PERCENT(AMOUNT,PCT_SUM_I,CODE);
+
+   PSK('AN',DEC_1502,'PS',PCT_SUM_I,'IN',SUM_NEW_I,'BN',SUM_NEW_B);
+ /*---------------------------------------------------------------*/
+ /* GET DIFFERENCE BETWEEN THE BOTH NEW SUM AMOUNTS               */
+ /*  AND ADD IT TO THE NEW ITEM AMOUNT                            */
+ /*---------------------------------------------------------------*/
+   RETURN(DEC_1502 - SUM_NEW_I + SUM_NEW_B);
+
+ END PCT_PCT_ALIGN;
+
+ /*==================================================================*/
+ /* PRORATE_START: SET FIRST DAY OF NEXT MONTH WHEN DAY > 1          */
+ /*                FOR A DECIMAL(6) DATE IN FORMAT YYMMDD            */
+ /*  CALL OF PRORATE_START ---> DATE_XXX = PRORATE_START(DATE_YYY)   */
+ /*==================================================================*/
+
+ PRORATE_START:PROC (DATE01) RETURNS (DEC FIXED( 6,0));
+
+    DCL DATE01    DEC FIXED ( 6,0);
+    DCL TEMP_CALC DEC FIXED ( 6,0);
+
+    SELECT;
+       WHEN(DATE01 = 0)
+          RETURN(0);
+       WHEN(DAY(DATE01) = 1)
+          RETURN(DATE01);
+       OTHERWISE DO;
+          TEMP_CALC = DATE01;
+          CALL SET_DAY(TEMP_CALC,1);
+          RETURN(DATEADD(TEMP_CALC,1,'M'));
+       END;
+    END;
+
+ END PRORATE_START;
+
+ /*==================================================================*/
+ /* PRORATE_STOP: SET LAST DAY OF MONTH                              */
+ /*               FOR A DECIMAL(6) DATE IN FORMAT YYMMDD             */
+ /*  CALL OF PRORATE_STOP ---> DATE_XXX = PRORATE_STOP(DATE_YYY)     */
+ /*==================================================================*/
+
+ PRORATE_STOP:PROC (DATE01) RETURNS (DEC FIXED( 6,0));
+
+    DCL DATE01    DEC FIXED ( 6,0);
+    DCL TEMP_CALC DEC FIXED ( 6,0);
+
+    SELECT;
+       WHEN(DATE01 = 999999)
+          RETURN(999999);
+       OTHERWISE DO;
+          TEMP_CALC = DATE01;
+          CALL SET_DAY(TEMP_CALC,DAYS_OF_MONTH(TEMP_CALC));
+          RETURN(TEMP_CALC);
+       END;
+    END;
+
+ END PRORATE_STOP;
+ %INCLUDE QCHLOCKM;
+ DCL 1 LOCK_IF          AUTO,
+       %INCLUDE QCHLOCK;
+ /*==================================================================*/
+ /* LOCK_SET : SET A MVS LOCK                                        */
+ /* INTERFACE : PARM1 - 8 CHAR. QNAME                                */
+ /*             PARM2 - 255 CHARVAR RESOURCE NAME                    */
+ /*             PARM3 - ADDR. OF ARRAY CONTAINING SCOPE, TYPE, REQCOD*/
+ /*==================================================================*/
+
+ LOCK_SET:PROC (PARM_QNAME,PARM_RNAME,PARM_P) RETURNS(FIXED BIN(31,0));
+
+ DCL PARM_QNAME       CHAR(8),
+     PARM_RNAME       CHAR(255) VAR,
+     PARM_P           PTR,
+     1 PARM_OPT       BASED(PARM_P),
+       3 PARM_SCOPE   CHAR(16),
+       3 PARM_TYPE    CHAR(16),
+       3 PARM_REQTYPE CHAR(16);
+
+ LOCK_IF.QNAME = PARM_QNAME;
+ LOCK_IF.RESOURCE_NAME = PARM_RNAME;
+ SELECT(PARM_SCOPE);
+   WHEN('STEP') LOCK_IF.SCOPE = SCOPE_STEP;
+   WHEN('SYSTEM') LOCK_IF.SCOPE = SCOPE_SYSTEM;
+   WHEN('SYSTEMS') LOCK_IF.SCOPE = SCOPE_SYSTEMS;
+ END;
+ SELECT(SUBSTR(PARM_TYPE,1,1));
+   WHEN('S') LOCK_IF.TYPE = TYPE_SHARED;
+   WHEN('E') LOCK_IF.TYPE = TYPE_EXCLUSIVE;
+ END;
+ SELECT(PARM_REQTYPE);
+   WHEN('CHNG') LOCK_IF.SFUNC = SFUNC_CHANGE;
+   WHEN('HAVE') LOCK_IF.SFUNC = SFUNC_HAVE;
+   WHEN('USE') LOCK_IF.SFUNC = SFUNC_USE;
+   WHEN('NONE') LOCK_IF.SFUNC = SFUNC_NONE;
+ END;
+ RETURN(QCHSLM(32));
+ END LOCK_SET;
+
+ /*==================================================================*/
+ /* LOCK_TEST : TEST THE STATUS OF A MVS LOCK                        */
+ /* INTERFACE : PARM1 - 8 CHAR. QNAME                                */
+ /*             PARM2 - 255 CHARVAR RESOURCE NAME                    */
+ /*             PARM3 - ADDR. OF ARRAY CONTAINING SCOPE, TYPE        */
+ /*==================================================================*/
+
+ LOCK_TEST:PROC (PARM_QNAME,PARM_RNAME,PARM_P) RETURNS(FIXED BIN(31,0));
+
+ DCL PARM_QNAME       CHAR(8),
+     PARM_RNAME       CHAR(255) VAR,
+     PARM_P           PTR,
+     1 PARM_OPT       BASED(PARM_P),
+       3 PARM_SCOPE   CHAR(16),
+       3 PARM_TYPE    CHAR(16);
+
+ LOCK_IF.QNAME = PARM_QNAME;
+ LOCK_IF.RESOURCE_NAME = PARM_RNAME;
+ SELECT(PARM_SCOPE);
+   WHEN('STEP') LOCK_IF.SCOPE = SCOPE_STEP;
+   WHEN('SYSTEM') LOCK_IF.SCOPE = SCOPE_SYSTEM;
+   WHEN('SYSTEMS') LOCK_IF.SCOPE = SCOPE_SYSTEMS;
+ END;
+ SELECT(SUBSTR(PARM_TYPE,1,1));
+   WHEN('S') LOCK_IF.TYPE = TYPE_SHARED;
+   WHEN('E') LOCK_IF.TYPE = TYPE_EXCLUSIVE;
+ END;
+ RETURN(QCHSLM(36));
+ END LOCK_TEST;
+
+ /*==================================================================*/
+ /* LOCK_FREE : FREE A MVS LOCK                                      */
+ /* INTERFACE : PARM1 - 8 CHAR. QNAME                                */
+ /*             PARM2 - 255 CHARVAR RESOURCE NAME                    */
+ /*             PARM3 - ADDR. OF SCOPE                               */
+ /*==================================================================*/
+
+ LOCK_FREE:PROC (PARM_QNAME,PARM_RNAME,PARM_P) RETURNS(FIXED BIN(31,0));
+
+ DCL PARM_QNAME       CHAR(8),
+     PARM_RNAME       CHAR(255) VAR,
+     PARM_P           PTR,
+     PARM_SCOPE       CHAR(16) BASED(PARM_P);
+
+ LOCK_IF.QNAME = PARM_QNAME;
+ LOCK_IF.RESOURCE_NAME = PARM_RNAME;
+ SELECT(PARM_SCOPE);
+   WHEN('STEP') LOCK_IF.SCOPE = SCOPE_STEP;
+   WHEN('SYSTEM') LOCK_IF.SCOPE = SCOPE_SYSTEM;
+   WHEN('SYSTEMS') LOCK_IF.SCOPE = SCOPE_SYSTEMS;
+ END;
+ RETURN(QCHSLM(40));
+ END LOCK_FREE;
+
+ /*==================================================================*/
+ /* NEW_UNIQUE_IR: RETURNS DATE AND TIME IN DEC FIXED (15)           */
+ /*                REFORMAT UNIQUE_IR WITH EXCEPTION DIGIT+REGION ID */
+ /*                IF SPA.RUNDATE = '' RETURNS CURRENT DATE          */
+ /*==================================================================*/
+
+ NEW_UNIQUE_IR:PROC (DEC_UNIQUE_ID) RETURNS(DEC FIXED(15));
+
+ DCL  DEC_UNIQUE_ID FIXED DEC(15,0);
+ DCL  I             FIXED DEC(15,0);
+ DCL  NUM           FIXED DEC(15,0);
+ DCL  TEMP_KEY      FIXED DEC(15,0);
+ DCL  NEW_KEY       FIXED DEC(15,0);
+ DCL  K_MILLI       FIXED DEC(3,0) INIT(0);
+ DCL  K_SECS        FIXED DEC(2,0) INIT(0);
+ DCL  K_MINS        FIXED DEC(2,0) INIT(0);
+ DCL  K_HOURS       FIXED DEC(2,0) INIT(0);
+ DCL  K_DAYS        FIXED DEC(3,0) INIT(0);
+ DCL  K_YEAR        FIXED DEC(2,0) INIT(0);
+ DCL  K_MISC        FIXED DEC(1,0) INIT(0);
+
+ NUM = DEC_UNIQUE_ID;
+
+ K_MILLI = MOD(NUM,1000);
+ NUM     = NUM /1000;
+ K_SECS  = MOD(NUM,100);
+ NUM     = NUM /100;
+ K_MINS  = MOD(NUM,100);
+ NUM     = NUM/100;
+ K_HOURS = MOD(NUM,100);
+ NUM     = NUM/100;
+ K_DAYS  = MOD(NUM,1000);
+ NUM     = NUM/1000;
+ K_YEAR  = MOD(NUM,100);
+ K_MISC  = 0; /* Shall be zero always */
+
+ NEW_KEY = (K_YEAR * 366 * 24 * 60 * 60 * 1000);
+ NEW_KEY = NEW_KEY + (K_DAYS  * 24 * 60 * 60 * 1000);
+ NEW_KEY = NEW_KEY + (K_HOURS * 60 * 60 * 1000);
+ NEW_KEY = NEW_KEY + (K_MINS  * 60 * 1000);
+ NEW_KEY = NEW_KEY + (K_SECS  * 1000);
+ NEW_KEY = NEW_KEY + (K_MILLI);
+ NEW_KEY = NEW_KEY + (K_MISC);
+
+ /*-----------------------------------------------------*/
+ /*  REVERT 1-13 POSITIONS OF NEW KEY                   */
+ /*-----------------------------------------------------*/
+ TEMP_KEY=0;
+
+ DO I = 1 TO 13 WHILE(NEW_KEY>0);
+   TEMP_KEY = TEMP_KEY * 10 + MOD(NEW_KEY, 10);
+   NEW_KEY = NEW_KEY / 10;
+ END;
+
+ NEW_KEY = TEMP_KEY;
+
+ /*-----------------------------------------------------*/
+ /*  EXCEPTION DIGIT                                    */
+ /*-----------------------------------------------------*/
+ EXCEPT_DIGIT = 0;
+ /*-----------------------------------------------------*/
+ /* ADD 14TH  AND  15TH DIGIT                           */
+ /*-----------------------------------------------------*/
+ NEW_KEY = NEW_KEY * 100 + EXCEPT_DIGIT * 10 + COC.INSTANCEID;
+
+ RETURN(NEW_KEY);
+
+ END NEW_UNIQUE_IR;
+
+ /*-----------------------------------------------------------------*/
+ get_area_pointr: proc (namey)
+                  returns(ptr);
+ /*-----------------------------------------------------------------*/
+
+   dcl namey          char(40) ;
+
+   /* get Area anchor address                                       */
+   pa_anch = get_area_anchor(namey);
+   apsk('getarptr:',namey,' ',pa_anch,' ',pa_anch->p01);
+
+   if pa_anch = Null() then do;
+     upsk('Allocation requested for Area which has not been',
+         'previously allocated! ',namey);
+     return(Null());
+   end;
+
+   if pa_anch->p01 ^= null() then do;
+   /* loop over area chain to get the last allocated area           */
+     DO p_temp = pa_anch->p01
+                 repeat (p_next)
+                 while  (p_temp ^= null());
+       p_actu = p_temp;
+       p_next = p_temp->link_struc.p_lnext;
+       apsk('getarptr p_actu:',p_actu);
+       apsk('getarptr p_next:',p_next);
+     end;
+     p_actu = p_actu->link_struc.p_ldata;
+   end;
+   else do;
+     apsk('Area pointr Alloc Area');
+     p_actu = allocate_ara(namey);
+   end;
+
+   apsk('getarpointr return ptr:',p_actu);
+   return(p_actu);
+
+ end get_area_pointr;
+
+ /*-----------------------------------------------------------------*/
+ get_area_anchor: proc (name1)
+                  returns(ptr);
+ /*-----------------------------------------------------------------*/
+ /* allocates an area of the disired purpose on initial request or  */
+ /* on area condition raised from runtime.                          */
+ /*-----------------------------------------------------------------*/
+ /*on error begin;
+     if spa.run_mode = 'M' then do;
+       revert error;
+       pa_vec = null();
+       pa     = null();
+       allocate Area_Inter set(p_area_inter);
+       apsk('OE INTERNAl Area allocated',' ',p_area_inter);
+       goto continue;
+     end;
+   end;
+ */
+   dcl pa             ptr static;
+   dcl name1          char(40)  ;
+   dcl ( p_gha, p_ghanext, p_ghatemp ) pointer auto;
+
+   pa = NULL();
+   apsk('getaranch pa_vec :',pa_vec);
+   apsk('getaranch input  :',name1);
+
+   /* verify the area vector no apsks, just commented as usually not
+      needed. Don't purge this commented code ! Beware of Gerhard. grr.
+   */
+   /*
+   if pa_vec ^= null() then do;
+     DO p_gha = pa_vec
+               repeat (p_ghanext)
+               while  (p_gha ^= null());
+      apsk('Vector link      :', addr(p_gha->link_struc));
+      apsk('Vector link strda:', p_gha->link_struc.p_ldata);
+      apsk('Vector link strnx:', p_gha->link_struc.p_lnext);
+      apsk('Vector link strpr:', p_gha->link_struc.p_lprev);
+      p_ghanext = p_gha->link_struc.p_lnext;
+      apsk('Vec:',p_gha->link_struc.p_ldata->area_$õ$_vector.name);
+      apsk('seq:',p_gha->link_struc.p_ldata->area_$õ$_vector.sequence);
+      apsk('anc:',p_gha->link_struc.p_ldata->area_$õ$_vector.anchor);
+     end;
+   end;
+   */
+   DO p_temp = pa_vec
+               repeat (p_next)
+               while  (p_temp ^= null() & pa = null());
+     p_next = p_temp->link_struc.p_lnext;
+     apsk('getaranch pa_area name:',
+       p_temp->link_struc.p_ldata->area_$õ$_vector.name);
+     if p_temp->link_struc.p_ldata->area_$õ$_vector.name = name1
+     then do;
+       pa = addr(p_temp->link_struc.p_ldata->area_$õ$_vector.anchor);
+       /* found Area Vector */
+       apsk('getaranch Found Area Name:',
+            p_temp->link_struc.p_ldata->area_$õ$_vector.name);
+     end;
+   end;
+
+   apsk('getaranch addr area vec pa_      :',pa);
+   if pa ^= Null() then do;
+     apsk('getareanch area vec link block :',pa->p01);
+     if pa->p01 ^= Null() then do;
+       apsk('getaranch area sequence nbr:',
+             pa->p01->link_struc.p_ldata->area_$õ$.SequNo);
+     end;
+   end;
+
+ continue:
+   return(pa);
+
+ end get_area_anchor;
+
+ /*-----------------------------------------------------------------*/
+ allocate_ara: proc (namex)
+               returns(ptr);
+ /*-----------------------------------------------------------------*/
+ /* allocates an area of the disired purpose on initial request or  */
+ /* on area condition raised from runtime.                          */
+ /*-----------------------------------------------------------------*/
+   dcl namex char(40);
+
+   if p_area_inter = Null() then do;
+     allocate Area_Inter set(p_area_inter);
+     apsk('INTERNAl Area allocated',' ',p_area_inter);
+   end;
+
+   /* get Area anchor address                                       */
+   pa_anch = get_area_anchor(namex);
+
+   /* allocate Area and Link block and link area to link block datap*/
+   call AllocAreaAndLinkBlock;
+
+   if pa_anch = null() then do;
+     apsk('allocAr New Area allocation processing Vector Element');
+     pa_anch = alloc_new_vect(namex);
+     apsk('allocAr New AreaAnchor:',pa_anch,pa_anch->p01);
+     call Init1stArea;
+   end;
+   else do;
+   /* loop over area chain to get the last allocated area           */
+   /* if first area then area_vector anchor is null                 */
+     if pa_anch->p01 ^= null() then do;
+
+       DO p_temp = pa_anch->p01
+                   repeat (p_next)
+                   while  (p_temp ^= null());
+         p_actu = p_temp;
+         p_next = p_temp->link_struc.p_lnext;
+         apsk('allocAr p_linkb:',p_actu);
+         apsk('allocAr p_next:',p_next);
+         apsk('allocAr Arsequn:',p_actu->link_struc.p_ldata->
+                                 Area_$õ$.SequNo);
+       end;
+       p_actu->link_struc.p_lnext = pl;
+       pl    ->link_struc.p_lprev = p_actu;
+       pl    ->link_struc.p_lnext = Null();
+       p->Area_$õ$.SequNo = p_actu->link_struc.p_ldata->Area_$õ$.SequNo
+                          + 1;
+     end;
+   /* here the area anchor vector has been already allocated and    */
+   /* freed. so we have the vector and need just reinitialize it    */
+   /* with the 1st ara allocation. previous areas have been freed.  */
+     else call Init1stArea;
+   end;
+   return(p);
+
+ Init1stArea: proc;
+   pa_anch->p01 = pl;
+   pl->p_lprev  = pl;
+   p->Area_$õ$.SequNo = 1;
+   apsk('1st area alloc for: '!!substr(namex,1,20),' ',pa_anch->p01);
+ end Init1stArea;
+
+ AllocAreaAndLinkBlock: proc;
+   alloc Area_$õ$ set(p);
+   alloc link_struc in(Area_Inter.Area_Data) set(pl);
+   pl->link_struc.p_ldata = p ;
+   pl->link_struc.p_lprev = null();
+   pl->link_struc.p_lnext = null();
+   apsk('allocAr Area pointer    :'!!substr(namex,1,20),' ',p);
+   apsk('allocAr Area Link block :'!!substr(namex,1,20),' ',pl);
+ end AllocAreaAndLinkBlock;
+
+ end allocate_ara;
+
+ /*-----------------------------------------------------------------*/
+ free_ara_all: proc;
+ /*-----------------------------------------------------------------*/
+ /* freeing all the allocated areas defined by the area vector.     */
+ /*-----------------------------------------------------------------*/
+
+   DO p_temp = pa_vec
+               repeat (p_next)
+               while  (p_temp ^= null());
+     p_actu = p_temp;
+     p_next = p_temp->link_struc.p_lnext;
+     apsk('fr_area ptrx: ',p_actu,' ',p_next);
+     apsk('fr_area newx: ',
+       p_temp->link_struc.p_ldata->area_$õ$_vector.anchor,' ',
+       p_temp->link_struc.p_ldata->area_$õ$_vector.name);
+     pa_anch = addr(p_temp->link_struc.p_ldata->area_$õ$_vector.anchor);
+
+     call Dealloc_area_chain;
+
+   end;
+
+   if p_area_inter ^= Null() then
+     free area_inter;
+   p_area_inter         = Null();
+   pa_vec               = Null();
+
+ end free_ara_all;
+
+ /*-----------------------------------------------------------------*/
+ free_ara: proc(namef);
+ /*-----------------------------------------------------------------*/
+ /* frees the allocated areas                                       */
+ /*-----------------------------------------------------------------*/
+   dcl namef          char(40);
+
+   /* get Area anchor address                                       */
+   pa_anch = get_area_anchor(namef);
+   apsk('free Areaa: ',namef);
+
+   if pa_anch ^= Null() then do;
+     if pa_anch->p01 ^= null() then
+     /* loop over area chain to get the last allocated area           */
+       Call Dealloc_area_chain;
+     else do;
+       apsk('No Area with name ',namef,' freed. Ev. Double Free cmd');
+     end;
+   end;
+   else do;
+     apsk('No Area with name: ',namef,' allocated. Nothing to free');
+   end;
+
+ end free_ara;
+
+ /*-----------------------------------------------------------------*/
+ Dealloc_area_chain: proc;
+ /*-----------------------------------------------------------------*/
+ /* deallocates an entire Areach chain from an Area Anchor          */
+ /*-----------------------------------------------------------------*/
+
+   apsk('DEalloc area chain starts ptr :',pa_anch->p01);
+   DO q_temp = pa_anch->p01
+               repeat (q_next)
+               while  (q_temp ^= null());
+     q_actu = q_temp;
+     q_next = q_temp->link_struc.p_lnext;
+     apsk('DEalloc actu:',q_actu);
+     apsk('DEalloc next:',q_next);
+     apsk('DEalloc sequ:',q_actu->link_struc.p_ldata->Area_$õ$.SequNo);
+     /* free Area                                                 */
+     free q_actu->link_struc.p_ldata->Area_$õ$;
+     free q_actu->link_struc in (Area_Inter.Area_Data);
+   end;
+   /* Init Area Anchor pointer                                    */
+   pa_anch->p01 = NULL();
+   apsk('DEalloc AnchorAdr AnchorPtr: ',pa_anch,' ',pa_anch->p01);
+
+ end Dealloc_area_chain;
+
+ /*-----------------------------------------------------------------*/
+ alloc_new_vect: proc (name2)
+                 returns (ptr);
+ /*-----------------------------------------------------------------*/
+ /* allocates a new area vector element                             */
+ /*                                                                 */
+ /* returns the address of the new area anchor pointer              */
+ /*-----------------------------------------------------------------*/
+
+    dcl name2 char(40);
+
+    /* Allocate the link structure                              */
+    alloc link_struc      in(Area_Inter.Area_Data) set(pm);
+    apsk('NewVec: link_ptr: ',pm);
+
+    /* Allocate the area vector item                            */
+    alloc area_$õ$_vector in(Area_Inter.Area_Data) set(pd);
+    apsk('NewVec: area_vec: ',pd);
+
+    pm->link_struc.p_ldata = pd;
+
+    pd->area_$õ$_vector.name     = name2;
+    pd->area_$õ$_vector.anchor   = NULL();
+
+    /* Now Linking new area vector element to area vector chain */
+    if pa_vec = NULL() then do;
+      pa_vec                       = pm;
+      pd->area_$õ$_vector.sequence = 1;
+      pm->link_struc.p_lprev       = pm;
+      pm->link_struc.p_lnext       = NULL;
+    end;
+    else do;
+    /* Looping forward to the last vector entry                 */
+      DO p_temp = pa_vec
+                  repeat (p_next)
+                  while  (p_temp ^= null());
+        p_actu = p_temp;
+        p_next = p_temp->link_struc.p_lnext;
+        apsk('newVec  newx:',
+          p_temp->link_struc.p_ldata->area_$õ$_vector.name);
+      end;
+    /* set forward and previous pointer in link structures      */
+      p_actu->link_struc.p_lnext = pm;
+      pm->link_struc.p_lprev     = p_actu;
+      pm->link_struc.p_lnext     = Null();
+      pd->area_$õ$_vector.sequence =
+              p_actu->link_struc.p_ldata->area_$õ$_vector.sequence + 1;
+      /*
+      apsk('NewVec pa_vect seqx:',pd->area_$õ$_vector.sequence);
+      apsk('NewVec pa_vect prev:',p_actu);
+      apsk('NewVec pm_lnk  prev:',pm->link_struc.p_lprev);
+      apsk('NewVec pm_lnk  data:',pm->link_struc.p_ldata);
+      apsk('NewVec pm_lnk  next:',pm->link_struc.p_lnext);
+      */
+    end;
+
+  /*aPSK('NewVec   data  :',substr(pd->area_$õ$_vector.name,1,20),
+                            pd->area_$õ$_vector.sequence); */
+
+    return(addr(pd->area_$õ$_vector.anchor));
+
+ end alloc_new_vect;
+
+ /*-----------------------------------------------------------------*/
+ get_area4element:proc (namee,ptree)
+                  returns(ptr);
+ /*-----------------------------------------------------------------*/
+
+   dcl namee           char(40) ;
+   dcl ptree           ptr      ;
+   dcl ptremax         ptr      ;
+
+   /* get Area anchor address                                       */
+   pe_anch = get_area_anchor(namee);
+   apsk('getar4el:',namee,' ',pe_anch->p01);
+
+   if pe_anch = Null() then do;
+     upsk('No specified Area defined or Area has not been ',
+         'previously allocated! ',namee);
+     return(Null());
+   end;
+
+   if pe_anch->p01 ^= null() then do;
+   /* loop over area chain to find the area where the allocation    */
+   /* took place                                                    */
+     DO p_temp = pe_anch->p01
+                 repeat (p_next)
+                 while  (p_temp ^= null());
+
+       p_actu  = p_temp->link_struc.p_ldata;
+       p_acte  = Addr(p_temp->link_struc.p_ldata->Area_$õ$.AREA_DATA);
+       ptremax = ptradd(p_acte,307200-1);
+
+       p_next = p_temp->link_struc.p_lnext;
+       if ptree > p_acte
+        & ptree < ptremax then do;
+         p_next = null();
+         p_temp = null();
+       end;
+    /* apsk('põ_ptre:',ptree);
+       apsk('põ_actu:',p_actu);
+       apsk('põ_acte:',p_acte);
+       apsk('põ_maxe:',ptremax);
+       apsk('põ_next:',p_next); */
+     end;
+   end;
+   else do;
+     apsk('No Area Anchor found');
+     p_actu = null();
+   end;
+
+   apsk('getar4el return area pointere:',p_actu);
+   return(p_actu);
+
+ end get_area4element;
+
+ /*-----------------------------------------------------------------*/
+ Init_Area_Ptrs: proc;
+ /*-----------------------------------------------------------------*/
+ /* Initializes Area Pointers                                       */
+ /*-----------------------------------------------------------------*/
+
+   pa_vec       = null();
+   p_area_inter = null();
+   apsk('Area Pointers Initialized!');
+
+ end Init_Area_Ptrs;
+
+ /*-----------------------------------------------------------------*/
+ lomo:PROC (PARM_EV,PARM_LMOD)
+            RETURNS (DEC FIXED(15,0));
+ /*-----------------------------------------------------------------*/
+
+    DCL PARM_EV entry variable;
+    DCL PARM_LMOD char(7);
+
+    DCL QCHSLMA ENTRY(FIXED BIN(15,0),
+                      CHAR(*),
+                      ENTRY VARIABLE)
+                RETURNS(FIXED BIN(31,0));
+    DCL lrc           BINARY FIXED(31,0);
+
+    lrc = QCHSLMA(20,PARM_LMOD,PARM_EV);
+    if lrc ^= 0 then do;
+      PSK('drv locate mod  RC:', TRIM(CHAR(LRC)));
+    end;
+
+    IF LRC ^= 0 THEN BEGIN;
+      DCL QCHSLMA ENTRY(FIXED BIN(15,0),
+                        CHAR(*),
+                        PTR,
+                        ENTRY VARIABLE)
+                  RETURNS(FIXED BIN(31,0));
+
+      LRC = QCHSLMA(4,PARM_LMOD,NULL,PARM_EV);
+
+      IF LRC ^= 0 THEN DO;
+        PSK('unable to load mod RC:', TRIM(CHAR(LRC)), parm_lmod);
+      END;
+    END;
+
+    return(lrc);
+
+ END lomo;
+
+ QCHSLM:PROC(PARM) RETURNS(FIXED BIN(31,0));
+ DCL PARM     FIXED BIN(15,0);
+ DCL QCHSLMA ENTRY(FIXED BIN(15,0),PTR) RETURNS(FIXED BIN(31,0));
+ RETURN(QCHSLMA(PARM,ADDR(LOCK_IF)));
+ END QCHSLM;
+ END QCHDUTM;

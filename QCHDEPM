@@ -1,0 +1,823 @@
+ /*********************************************************************/
+ /* MODULE NAME  : QCHDEPM                                            */
+ /* APPLICATION  : CHIS                (C) COPYRIGHT IBM CORP. 1991   */
+ /*-------------------------------------------------------------------*/
+ /*BEFORE CHANGING QCHDEPM SEE NEW FUNCTIONALITY IN ISEDOC MEMBER DEPM*/
+ /*-------------------------------------------------------------------*/
+ /* FUNCTION  1.): FILLS SPA.VARK1 CONTROLLED BY CFL PARM1 UNCOND.    */
+ /*              : THE VARK1 WILL BE SET TO '' IF FUNCTION NOT        */
+ /*              : ACTIVATED.                                         */
+ /*              :                                                    */
+ /*              :    PARM1 POS 11-11 ... CONTENT "=","+","-"         */
+ /*              :                        ACTIVATES THIS FUNCTION     */
+ /*              :    PARM1 POS 12-12 ... CONTENT IS AN ABBREVIATION  */
+ /*              :                        FOR THE FIELD WHICH CONTENT */
+ /*              :                        WILL BE ASSIGNED TO VARK1   */
+ /*              :    PARM1 POS 13-14 ... CONTENT DEFINES WHICH       */
+ /*              :                        PORTION OF THE FIELD SHOULD */
+ /*              :                        BE ASSIGNED TO VARK1        */
+ /*              :                        VARK1=SUBSTR(FLD,POS1,POS2) */
+ /*              : USED ABBREVIATIONS                                 */
+ /*              :   A ... SPA.ASA1                                   */
+ /*              :   D ... SPA.SCRKLST ( LAST SCREEN KEY )            */
+ /*              :   F ... SPA.SCRKFST ( FIRST SCREEN KEY )           */
+ /*              :   K ... LVL.S_KEY_1 ( CURRENT SCREEN KEY )         */
+ /*              :   S ... SPA.SAVE_KEY                               */
+ /*              :   M ... SPA.MAIN_KEY                               */
+ /*              :   L ... LOW                                        */
+ /*              :   V ... LEAVE CONTENT OF VARK1 AS IT IS            */
+ /*              :   R ... REPLACE VARK1 BY CHARACTER 13 OF PARM1     */
+ /*              :   H ... HIGH                                       */
+ /*              :   0 ... ZERO                                       */
+ /*              :   2 ... LVL.S_KEY_2 ( FIXED PORTION FROM PREV.SCR) */
+ /*              :----------------------------------------------------*/
+ /*           2.): CHECKS IF MODULE SHOULD BE EXECUTED OR NOT         */
+ /*              : CONTROLLED BY CONDITIONS IN CFL DESCRIPTION        */
+ /*              :                                                    */
+ /*              :    PARM1 POS 16-17 ... CONTENT "&&" OR "!!"        */
+ /*              :                        ACTIVATES THIS FUNCTION     */
+ /*              :    && ... CONDITIONS ARE "AND-ED" ALL 3 CONDTIONS  */
+ /*              :           HAVE TO BE TRUE TO EXECUTE MODULE        */
+ /*              :    !! ... CONDITIONS ARE "OR-ED" ONE OF THE 3 COND */
+ /*              :           HAS TO BE TRUE TO EXECUTE MODULE         */
+ /*              :    DESCR POS 16-23 ... 1ST CONDITION               */
+ /*              :    DESCR POS 25-32 ... 2ND CONDITION               */
+ /*              :    DESCR POS 34-40                                 */
+ /*              :  + PARM2 POS  1- 1 ... 3RD CONDITION               */
+ /*              :                                                    */
+ /*              : YOU CAN FIND A LIST OF USED CONDITIONS IN THE      */
+ /*              : PROCEDURE "CHK_CND_PARM" ( F CHK_CND_PARM: )       */
+ /*              :----------------------------------------------------*/
+ /*           3.): SUBSTITUTES PARM1 OF CFL DEPENDEND ON PARM1        */
+ /*              : UNCONDITIONAL                                      */
+ /*              :                                                    */
+ /*              :    POSITION 4 TO 10 OF PARM1                       */
+ /*              :    LVL---- ... SCREEN UNDERSCORE SUBPROCESS        */
+ /*              :    SCR---- ... SCREEN                              */
+ /*              :----------------------------------------------------*/
+ /*           4.): CHECK CFL DESCRIPTION AND PERFORM DEFINED ACTIONS  */
+ /*              :    DESCR POS  1- 6 ... FILL                        */
+ /*              :  + DESCR POS 11- 3 ... KEY                         */
+ /*              :                        FILLS TBLI1, TBLC1 AND      */
+ /*              :                        TAB_NAM                     */
+ /*              :    PARM1 POS 18-18 ... CLEARS TBLI1 AND TBLC1 IF * */
+ /*              :....................................................*/
+ /*              :    DESCR POS  1- 6 ... READ, OPEN, FETCH, CLOSE    */
+ /*              :                        INSERT, UPDATE, DELETE      */
+ /*              :  + DESCR POS 11- 3 ... BLANK, BWD, CSR             */
+ /*              :                        CHECKS TAB_NAM TO BE FILLED */
+ /*              :                        IF CLEARED, NO TABLE ACCESS */
+ /*              :----------------------------------------------------*/
+ /*           5.): TRACES MODULE                                      */
+ /*              :                                                    */
+ /*-------------------------------------------------------------------*/
+ /* AUTHOR       : M. IWANIEWICZ                                      */
+ /* HISTORY      : TYPE HIST IN COMMAND LINE AND PRESS ENTER          */
+ /*********************************************************************/
+
+ %INCLUDE QCH##PAD;
+ %INCLUDE QCH##EPS;
+ QCHDEPM: PROCEDURE ($$USPAPTR,SKP_RULEEXE) REORDER;
+ #MODIDENT(QCHDEPM);
+ %INCLUDE QCHDEPS;
+ %INCLUDE QCHDEPSX;
+ %INCLUDE QCHUTLC ;
+ %INCLUDE QCHUTLD ;
+ %INCLUDE QCHUTLS ;
+ %INCLUDE QCHDEPMM;
+
+
+   DFT  RANGE(*) STATIC;
+
+   DCL  $$USPAPTR    PTR                                             ;
+   DCL  1 SPA        BASED($$USPAPTR),      %INCLUDE QCHSPAS;        ;
+
+   %INCLUDE QCHDEPII;
+
+   DCL (INDEX                                                        ,
+        DATE                                                         ,
+        TIME                                                         ,
+        FIXED                                                        ,
+        UNSPEC                                                       ,
+        VERIFY                                                       ,
+        CHAR                                                         ,
+        BINVALUE                                                     ,
+        DIM                                                          ,
+        HIGH                                                         ,
+        LOW)         BUILTIN                                         ;
+
+   DCL SYSPRINT FILE PRINT EXT;
+
+   DCL  1 PC0        BASED(SPA.PC0P1),      %INCLUDE JAAI01S;        ;
+   DCL  1 PC2        BASED(SPA.PC2P1),      %INCLUDE JAAI12S;        ;
+   DCL  1 KEY        BASED(SPA.KEYP1),      %INCLUDE QCHKEYS;        ;
+   DCL  1 YXC        BASED(SPA.WRKP4),      %INCLUDE QCHYXCS;        ;
+   DCL  1 CLCROOT    BASED(SPP.CLCROOT),    %INCLUDE QCHDCLRS;       ;
+
+ /*-------------------------------------------------------------------*/
+ /* DECLARE OF SP2 STRUCTURE FOR NEW POINTERS                         */
+ /*-------------------------------------------------------------------*/
+   DCL  1 SP2        BASED(SPP.PTRP2),      %INCLUDE QCHPTR2;        ;
+
+   DCL  1 TRP        BASED(SP2.TRPP1),      %INCLUDE QCHTRPS;        ;
+   DCL  1 EOS        BASED(SPP.EOSP1),      %INCLUDE QCHEOS1;        ;
+ /*-------------------------------------------------------------------*/
+ /* AUTHORISATION DECLARES                                            */
+ /*-------------------------------------------------------------------*/
+   DCL 1 AUTHORISATIONS    BASED(SP2.SECP1) ,
+       %INCLUDE QCHSECS; ;
+
+   DCL  PI1          PTR                                             ;
+   DCL  PC1          PTR                                             ;
+   DCL  SPA_XXXI1    CHAR      (  1  )      BASED(PI1)               ;
+   DCL  SPA_XXXC1    CHAR      (  1  )      BASED(PC1)               ;
+   DCL  DIGITS       CHAR      ( 45  )
+         INIT('123456789ABCDEFGHIJKLMNOPQRSTUVWXYZš"$Ž%?)/(#');
+   DCL  FRM_POS_D    FIXED BIN (15,0) INIT(0);
+   DCL  STR_LEN_D    FIXED BIN (15,0) INIT(0);
+
+   DCL  SPA_ACTIONB(8) BIT                  BASED(ADDR(SPA.ACTIONN)) ;
+
+   DCL  TRC_TXT      CHAR      (150  )      VAR INIT(' ')            ;
+   DCL  ACT_TXT      CHAR      (150  )      VAR INIT(' ')            ;
+
+   DCL  1 RUL_LNE                           BASED(SPA.CURRENT_RULE)  ,
+          %INCLUDE  QCHCFLS;       ;
+
+   DCL  1 CND  (  3  )                                               ,
+          2  PARM         CHAR(  8  ) INIT(' ')                      ,
+          2  TRUE         CHAR(  1  ) INIT(' ')                      ;
+
+   DCL  C_CNT        BIN FIXED ( 15  ) INIT(0)                       ;
+   DCL  C_05         CHAR      (  5  ) INIT(' ')                     ;
+   DCL  C_06         CHAR      (  6  ) INIT(' ')                     ;
+   DCL  C_07         CHAR      (  7  ) INIT(' ')                     ;
+   DCL  C_09         CHAR      (  9  ) INIT(' ')                     ;
+   DCL  C_15         CHAR      ( 15  ) INIT(' ')                     ;
+   DCL  DEP_FOUND    CHAR      (  1  ) INIT(' ')                     ;
+   DCL  SKP_RULEEXE  CHAR      (  1  )                               ;
+   DCL  PIC_XXX_002  PIC         '99' DEF CHR_XXX_002;
+   DCL  CHR_XXX_002  CHAR      (  2  )  INIT(' ')                    ;
+   DCL  VAR_HLP_COD  CHAR      (  8  )  VAR INIT(' ')                ;
+   DCL  VAR_CMP_VAL  CHAR      (  6  )  VAR INIT(' ')                ;
+   DCL  VAR_DEP_COD  CHAR      (  6  )  VAR INIT(' ')                ;
+   DCL  VAR_DEP_COD_P(8)       PIC'9' BASED(ADDR(VAR_DEP_COD))       ;
+   DCL  VAR_DEP_VAL  CHAR      (  6  )  VAR INIT(' ')                ;
+   DCL  CHR_DEP_OPE  CHAR      (  1  ) INIT(' ')                     ;
+   DCL  CND_IDENT    CHAR      (  2  ) INIT(' ')                     ;
+
+   DCL  TBL_NAM_FND  CHAR      (  1  ) INIT(' ')                     ;
+   DCL  CFL_TBL_NAM  CHAR      (  3  ) INIT(' ')                     ;
+   DCL  CFL_ACTIONN  CHAR      (  1  ) INIT(' ')                     ;
+   DCL  CFL_DEL_IND  CHAR      (  1  ) INIT(' ')                     ;
+   DCL  RUL_ACT_NAM  CHAR      (  6  ) INIT(' ')                     ;
+   DCL  RUL_ACT_SRC  CHAR      (  3  ) INIT(' ')                     ;
+   DCL  PIC_LSFUIDX  PIC      '(15)9' INIT(0);
+   DCL  PIC_LSFUID1  PIC       '9' DEF CHR_LSFUID1,
+        CHR_LSFUID1  CHAR      (  1  ) INIT(' ');
+
+   DCL  PIC_QCHSQLCD PIC       '999' DEF CHR_QCHSQLCD,
+        CHR_QCHSQLCD CHAR      (  3  )      INIT(' ')                ;
+
+   DCL  CHR_TIM      CHAR      (  9  )      INIT(' ')                ;
+
+   DCL  DEC_DAGRXXX  DEC FIXED (  6  )      INIT( 0 )                ;
+   DCL  CHR_DAGRXXX  CHAR      ( 10  )      INIT(' ')                ;
+
+   DCL  PIC_IOPUCTY  PIC       '999'        BASED(ADDR(CTL.IOPUCTY)) ;
+
+   DCL  1 U_D BASED(ADDR(SPA.UID_INFO)),
+          2 FILLER      CHAR     (  6  ),
+          2 FSTNDIN     CHAR     (  1  ),
+          2 FBRANCH     CHAR     (  1  ),
+          2 FFLDSEL     CHAR     (  1  )
+          ;
+   DCL  PIC_RUNDATE  PIC       '999999' DEF CHR_RUNDATE,
+        CHR_RUNDATE  CHAR      (  6  ) INIT(' ');
+   CHR_RUNDATE = SPA.RUNDATE;
+
+   DCL  MOD_IDENT    CHAR      ( 17  )      INIT('            DEP  ');
+
+   %INCLUDE QCHLVLS;
+
+ /*-------------------------------------------------------------------*/
+ /*  PROGRAM LOGIC STARTS:                                            */
+ /*-------------------------------------------------------------------*/
+   CND_IDENT   = SUBSTR(RUL_LNE.PARM1,16, 2);
+   RUL_ACT_NAM = SUBSTR(RUL_LNE.DESCR, 1, 6);
+   RUL_ACT_SRC = SUBSTR(RUL_LNE.DESCR,12, 3);
+
+   IF RUL_ACT_SRC = 'RC ' THEN DO;
+      RUL_ACT_NAM = 'CHECK ';
+   END;
+
+   CALL TRC_RUL_HDR   ;
+   CALL CLC_VAR_KEY   ;
+
+   IF CND_IDENT = '&&'
+   !  CND_IDENT = '!!' THEN DO;
+      CALL CHK_CONDITION ;
+   END;
+
+   CALL CHK_CFL_PARM ;
+   CALL CHK_CFL_DSC  ;
+   CALL TRC_RUL_BEF  ;
+
+ /*===================================================================*/
+ /* CLC_VAR_KEY                                                       */
+ /* ===========                                                       */
+ /* ASSIGNS VALUE TO SPA.VARK1 DEPENDEND ON CONTENT PF SPA.PARM       */
+ /*===================================================================*/
+
+ CLC_VAR_KEY: PROCEDURE;
+
+
+   IF INDEX('-+=',SUBSTR(SPA.PARM1,11, 1)) = 0
+   THEN DO;
+          SPA.VARK1 = '';
+          RETURN;
+        END;
+
+   /*-------------------------------------------------*/
+   /*                 1         2         3         4 */
+   /*        1234567890123456789012345678901234567890 */
+   /*-------------------------------------------------*/
+
+   FRM_POS_D = INDEX(DIGITS,SUBSTR(SPA.PARM1,13, 1)) ;
+   STR_LEN_D = INDEX(DIGITS,SUBSTR(SPA.PARM1,14, 1));
+   SELECT(SUBSTR(SPA.PARM1,12, 1));
+      WHEN('A')
+        SPA.VARK1 = SUBSTR(SPA.ASA1 ,FRM_POS_D,STR_LEN_D);
+      WHEN('D')
+        IF ( STR_LEN_D + FRM_POS_D - 1 ) > 40
+        THEN SPA.VARK1 = SUBSTR(SPA.SCRKLST,FRM_POS_D);
+        ELSE SPA.VARK1 = SUBSTR(SPA.SCRKLST,FRM_POS_D,STR_LEN_D);
+      WHEN('F')
+        IF ( STR_LEN_D + FRM_POS_D - 1 ) > 40
+        THEN SPA.VARK1 = SUBSTR(SPA.SCRKFST,FRM_POS_D);
+        ELSE SPA.VARK1 = SUBSTR(SPA.SCRKFST,FRM_POS_D,STR_LEN_D);
+      WHEN('K')
+        IF ( STR_LEN_D + FRM_POS_D - 1 ) > 40
+        THEN SPA.VARK1 = SUBSTR(LVL.S_KEY_1,FRM_POS_D);
+        ELSE SPA.VARK1 = SUBSTR(LVL.S_KEY_1,FRM_POS_D,STR_LEN_D);
+      WHEN('S')
+        SPA.VARK1 = SUBSTR(SPA.SAVE_KEY,FRM_POS_D,STR_LEN_D);
+      WHEN('M')
+        SPA.VARK1 = SUBSTR(SPA.MAIN_KEY,FRM_POS_D,STR_LEN_D);
+      WHEN('L')
+        SPA.VARK1 = LOW(STR_LEN_D);
+      WHEN('H')
+        SPA.VARK1 = HIGH(STR_LEN_D);
+      WHEN('V');
+         /* AVOIDS THAT THE SPA.VARK1 IS CLEARED BY OTHERWISE      */
+      WHEN('R')
+        SPA.VARK1 = SUBSTR(SPA.PARM1,13, 1);
+      WHEN('0')
+        SPA.VARK1 = REPEAT('0',STR_LEN_D);
+      WHEN('2')
+        IF ( STR_LEN_D + FRM_POS_D - 1 ) > 40
+        THEN SPA.VARK1 = SUBSTR(LVL.S_KEY_2,FRM_POS_D);
+        ELSE SPA.VARK1 = SUBSTR(LVL.S_KEY_2,FRM_POS_D,STR_LEN_D);
+      OTHERWISE DO;
+        QCHMSG('100','QCHDEP ' !! ',' !! SUBSTR(SPA.PARM1,12, 1),,12);
+        SPA.VARK1 = '';
+        RETURN;
+      END;
+   END;
+
+   SELECT(SUBSTR(SPA.PARM1,11, 1));
+     WHEN('-')
+       SPA.VARK1=ADD_SUB_1('-',SPA.VARK1,SPA.KEYCLGC);
+     WHEN('+')
+       SPA.VARK1=ADD_SUB_1('+',SPA.VARK1,SPA.KEYCLGC);
+     OTHER;
+   END;
+
+ END CLC_VAR_KEY;
+
+ /*===================================================================*/
+ /* CHK_CONDITION                                                     */
+ /* =============                                                    */
+ /* CHECK IF CONDITIONS ARE TRU OR NOT                                */
+ /*===================================================================*/
+
+ CHK_CONDITION: PROCEDURE;
+
+   CND.PARM(1) = SUBSTR(RUL_LNE.DESCR,16, 8)  ;
+   CND.PARM(2) = SUBSTR(RUL_LNE.DESCR,25, 8)  ;
+   CND.PARM(3) = SUBSTR(RUL_LNE.DESCR,34, 7) !!
+                 SUBSTR(RUL_LNE.PARM2, 1, 1)  ;
+
+   DO C_CNT = 1 TO 3;
+
+      IF (RUL_LNE.PARM_IDX(1,C_CNT) = 0) !
+         (C_CNT = 3 & SUBSTR(CND.PARM(3),1,1) = '<')
+      THEN SELECT(CND_IDENT);
+             WHEN('&&')
+               CND.TRUE(C_CNT) = 'Y';
+             WHEN('!!')
+               CND.TRUE(C_CNT) = 'N';
+             OTHER;
+           END;
+      ELSE DO;
+         CHR_DEP_OPE =
+                 SUBSTR(CND.PARM(C_CNT),RUL_LNE.PARM_IDX(1,C_CNT),1);
+         VAR_DEP_VAL =
+                 SUBSTR(CND.PARM(C_CNT),RUL_LNE.PARM_IDX(1,C_CNT) + 1);
+         VAR_DEP_COD =
+                 SUBSTR(CND.PARM(C_CNT),1,RUL_LNE.PARM_IDX(1,C_CNT)-1);
+         CALL CHK_CND_PARM ;
+      END;
+   END;
+
+   SELECT(CND_IDENT);
+     WHEN('&&')
+      IF CND.TRUE( 1 ) = 'N'
+      !  CND.TRUE( 2 ) = 'N'
+      !  CND.TRUE( 3 ) = 'N' THEN SKP_RULEEXE = 'Y';
+     WHEN('!!')
+      IF CND.TRUE( 1 ) = 'N'
+      &  CND.TRUE( 2 ) = 'N'
+      &  CND.TRUE( 3 ) = 'N' THEN SKP_RULEEXE = 'Y';
+   END;
+
+ /*----------------------------------------------------------------*/
+
+ END CHK_CONDITION;
+ /*===================================================================*/
+ /* CHK_CND_PARM                                                      */
+ /* ============                                                      */
+ /* CHECK IF CONDITION PARM IS TRUE OR NOT                            */
+ /*===================================================================*/
+
+ CHK_CND_PARM: PROCEDURE;
+   Dcl LabIx        fixed bin(31) init(0);
+
+   /*----------------------------------------------------------------*/
+   /* Start of labeled condition code segments                       */
+   /*----------------------------------------------------------------*/
+
+   %INCLUDE QCHDEPMA;
+
+   $COND();                    /* Generate/initialize label array    */
+
+   /*----------------------------------------------------------------*/
+   /* End of labeled condition code segments                         */
+   /*----------------------------------------------------------------*/
+
+   VAR_CMP_VAL = ' ' ;
+
+   IF VAR_DEP_VAL = 'õ' THEN VAR_DEP_VAL = ' ';
+
+   LabIx = BinSearch($CondStr, char(Var_Dep_Cod), 1, dim($CondStr, 1));
+
+   if LabIx = 0 then do;
+     UPUT SKIP EDIT('No label exists for condition: ', Var_Dep_Cod) (a);
+     UPUT SKIP EDIT('  VAL1 = ',VAR_DEP_VAL) (A);
+     UPUT SKIP EDIT('  VAL2 = ',VAR_CMP_VAL) (A);
+     UPUT SKIP EDIT('  OP   = ',CHR_DEP_OPE) (A);
+
+     UCLOSE FILE(SYSPRINT);
+     SIGNAL ERROR;
+   end;
+
+   goto $LabelTab(LabIx);      /* Goto condition code segment        */
+
+ End_Index:;                   /* Return from condition code segment */
+
+ /*------------------------------------------------------------------*/
+ /* Process the condition code results                               */
+ /*------------------------------------------------------------------*/
+
+   CND.TRUE(C_CNT) = 'Y';
+   SELECT(CHR_DEP_OPE);
+     WHEN('=')
+       IF VAR_CMP_VAL ^= VAR_DEP_VAL THEN CND.TRUE(C_CNT) = 'N';
+     WHEN('^')
+       IF VAR_CMP_VAL  = VAR_DEP_VAL THEN CND.TRUE(C_CNT) = 'N';
+     WHEN('>')
+       IF VAR_CMP_VAL <= VAR_DEP_VAL THEN CND.TRUE(C_CNT) = 'N';
+     WHEN('<')
+       IF VAR_CMP_VAL >= VAR_DEP_VAL THEN CND.TRUE(C_CNT) = 'N';
+     OTHER;
+   END;
+
+ /*----------------------------------------------------------------*/
+   MOD_IDENT = (12)' '                         !!
+               SUBSTR(RUL_LNE.RULENAME, 4, 3) ;
+   IF CND.TRUE(C_CNT) = 'N' THEN DO;
+      PSK((14)' ',
+          'F  : '       ,
+          VAR_DEP_COD,'-',VAR_DEP_VAL,CHR_DEP_OPE,VAR_CMP_VAL ,
+          REPEAT(' ',22 - LENGTH(VAR_CMP_VAL) )               ,
+          CND_IDENT)                                          ;
+   END;
+   ELSE DO;
+      PSK((14)' ',
+          ' T : '       ,
+          VAR_DEP_COD,'-',VAR_DEP_VAL,CHR_DEP_OPE,VAR_CMP_VAL ,
+          REPEAT(' ',22 - LENGTH(VAR_CMP_VAL) )               ,
+          CND_IDENT)                                          ;
+   END;
+ /*----------------------------------------------------------------*/
+
+ END CHK_CND_PARM;
+
+ /*------------------------------------------------------------------*/
+ /* TRIM:                                                            */
+ /*                                                                  */
+ /* REMOVES LEADING AND TRAILING BLANKS FROM A STRING AND RETURNS    */
+ /* THE TRIMMED STRING.                                              */
+ /*                                                                  */
+ /* PARAMETERS:                                                      */
+ /*   1. CHAR(*)         - STRING                                    */
+ /*                                                                  */
+ /* RETURNS:                                                         */
+ /*   1. CHAR(32765) VAR - TRIMMED STRING                            */
+ /*------------------------------------------------------------------*/
+
+ TRIM: PROC(STR) RETURNS(CHAR(32765) VAR);
+   DCL  STR             CHAR(*);
+
+   DCL  I               FIXED BIN(31);
+   DCL  TRIMSTR         CHAR(32765) VAR;
+
+   TRIMSTR = '';               /* INITIAL RETURN STRING IS STR       */
+
+   I = VERIFY(STR,' ');        /* FIND FIRST NON-BLANK               */
+   IF I > 0 THEN DO;           /* FOUND A NON-BLANK AFTER ZERO OR MORE
+                                  LEADING BLANKS                     */
+     TRIMSTR = SUBSTR(STR,I);  /* REMOVE LEADING BLANKS              */
+
+     DO I = LENGTH(TRIMSTR) TO 1 BY -1
+            WHILE (SUBSTR(TRIMSTR,I,1) = ' ');
+     END;
+
+     TRIMSTR = SUBSTR(TRIMSTR,1,I);
+   END;
+
+   RETURN (TRIMSTR);
+ END TRIM;
+ /*------------------------------------------------------------------*/
+ /* INT2HEX:                                                         */
+ /*                                                                  */
+ /* CONVERTS THE SPECIFIED INTEGER TO A HEX STRING.                  */
+ /*                                                                  */
+ /* PARAMETERS:                                                      */
+ /*   1. FIXED BIN(31)   - INTEGER                                   */
+ /*                                                                  */
+ /* RETURNS:                                                         */
+ /*   1. CHAR(8) VAR     - HEX OUTPUT STRING (NO LEADING ZEROS)      */
+ /*------------------------------------------------------------------*/
+
+ INT2HEX: PROC(INT) RETURNS(CHAR(8) VAR);
+   DCL  INT             FIXED BIN(31);
+
+   DCL  I               FIXED BIN(31);
+   DCL  N1              FIXED BIN(31);
+   DCL  N2              FIXED BIN(31);
+   DCL  CHARS(4)        CHAR BASED(ADDR(INT));
+   DCL  HEX             CHAR(8) VAR;
+   DCL  HEXCHARS(16)    CHAR INIT('0','1','2','3','4','5','6','7',
+                                  '8','9','A','B','C','D','E','F');
+   HEX = '';
+   DO I = 1 TO 4;
+     N1 = FIXED(UNSPEC(CHARS(I)) & UNSPEC('F0'X)) / 16;
+     N2 = UNSPEC(CHARS(I)) & UNSPEC('0F'X);
+     HEX = HEX !! HEXCHARS(N1+1) !! HEXCHARS(N2+1);
+   END;
+
+   DO I = 1 TO 3;
+     IF SUBSTR(HEX,1,2) = '00' THEN
+       HEX = SUBSTR(HEX,3);
+   END;
+
+   RETURN (HEX);
+ END INT2HEX;
+ /*===================================================================*/
+ /* CHK_CFL_PARM                                                      */
+ /* ============                                                      */
+ /* CHECK IF DEPENDEND IS TRUE OR NOT                                 */
+ /*===================================================================*/
+
+ CHK_CFL_PARM: PROCEDURE;
+
+   PARM = SUBSTR(SPA.PARM1, 4, 7);
+
+   SELECT(SUBSTR(SPA.PARM1,4,7));
+      WHEN('LVL----')
+        SUBSTR(SPA.PARM1,4,7) = LVL.SCREEN !! '_' !! LVL.S_PROC;
+      WHEN('SCR----')
+        SUBSTR(SPA.PARM1,4,7) = LVL.SCREEN;
+      OTHERWISE;
+   END;
+
+ END CHK_CFL_PARM;
+
+ /*===================================================================*/
+ /* CHK_CFL_DSC                                                       */
+ /* ===========                                                       */
+ /*   CHECKS FOR KEYWORDS IN CFL DESCRIPTION AND PERFORMS ACTION     */
+ /*===================================================================*/
+
+ CHK_CFL_DSC: PROCEDURE;
+
+   ACT_TXT     = '' ;
+   CFL_ACTIONN = ' ';
+   TBL_NAM_FND = 'N';
+   CFL_DEL_IND = SUBSTR(RUL_LNE.PARM1,18, 1);
+
+   SELECT(RUL_ACT_NAM !! RUL_ACT_SRC);
+   /*--------------------------------------------------------------*/
+      WHEN('CHECK RC ') DO;
+         IF SPA.TBL_NAM = '' THEN DO;
+            SKP_RULEEXE = 'Y';
+            CFL_ACTIONN = 'C';
+            ACT_TXT = 'NO TABLE ACCESS  --> NO RETURN CODE CHECK';
+            RETURN;
+         END;
+      END;
+   /*--------------------------------------------------------------*/
+      WHEN('FILL  KEY',
+           'FILL  IND') DO;
+   /*--------------------------------------------------------------*/
+         CALL FND_CUR_TBL ;
+         IF TBL_NAM_FND = 'N' THEN DO;
+            RETURN;
+         END;
+
+         IF SKP_RULEEXE = 'N' THEN DO;
+            SPA.TBL_NAM = CFL_TBL_NAM ;
+            SPA.TBLI1   = SUBSTR(RUL_LNE.PARM1, 1, 1);
+            SPA.TBLC1   = SUBSTR(RUL_LNE.PARM1, 2, 1);
+            IF SPA.TBLC1 = '*' THEN DO;
+               SPA.TBLC1 = LVL.S_COD_1 ;
+            END;
+         END;
+         /*--------------------------------------------------------*/
+         /* FOR ANY  FILL KEY MODULE CLEAR THE SPA TABLE           */
+         /* INDICATORS IF A "*" IS SPECIFIED AND THE RULE IS NOT   */
+         /* TO BE EXECUTED                                         */
+         /*--------------------------------------------------------*/
+         IF SKP_RULEEXE = 'Y'
+         &  CFL_DEL_IND = '*' THEN DO;
+            SPA.TBLI1   = ' ';
+            SPA.TBLC1   = ' ';
+            SPA.TBLK1   = '' ;
+            SPA.TBL_NAM = '' ;
+            ACT_TXT = 'CLEARED I1,C1,K1 AND SPA.TBL_NAM';
+         END;
+         SPA_XXXI1   = SPA.TBLI1;
+         SPA_XXXC1   = SPA.TBLC1;
+      END;
+   /*--------------------------------------------------------------*/
+      WHEN('READ     ',
+           'READ  BWD',
+           'READ  SUM',
+           'OPEN     ',
+           'FETCH    ',
+           'CLOSE    ',
+           'INSERT   ',
+           'UPDATE   ',
+           'DELETE   ') DO;
+   /*--------------------------------------------------------------*/
+         CALL FND_CUR_TBL ;
+
+         IF TBL_NAM_FND = 'N' THEN DO;
+            PSK('INVALID TABLE NAME IN CONTROL FLOW');
+            RETURN;
+         END;
+
+         IF SPA.TBL_NAM = '' THEN DO;
+            SKP_RULEEXE = 'Y';
+            CFL_ACTIONN = 'C';
+            ACT_TXT = 'CLEARED I1,C1,K1 --> NO TABLE ACCESS';
+            RETURN;
+         END;
+         IF SPA.TBL_NAM ^= CFL_TBL_NAM
+         &  CFL_TBL_NAM ^= 'COM'       THEN DO;  /* EXCEPTION */
+            ACT_TXT = CFL_TBL_NAM                             !!
+                      '-TBL TO BE ACCESSED BUT K1 FILLED FOR '!!
+                      SPA.TBL_NAM                             !!
+                      '-TBL ACCESS'                            ;
+            RETURN;
+         END;
+      END;
+   /*--------------------------------------------------------------*/
+      OTHERWISE DO;
+   /*--------------------------------------------------------------*/
+      END;
+   END;
+
+ END CHK_CFL_DSC;
+
+ /*===================================================================*/
+ /* FND_TBL_NAM                                                       */
+ /* ===========                                                       */
+ /*   CHECKS IF KEYWORD IN CFL DESCRIPTION IS A TABLE NAME AND IF    */
+ /*   YES ASSIGNS THE ADDRESSES OF THE CORRESPONDING I1 AND C1       */
+ /*===================================================================*/
+
+ FND_CUR_TBL: PROCEDURE;
+   Dcl LabIx        fixed bin(31) init(0);
+
+   TBL_NAM_FND = 'N';
+   CFL_TBL_NAM = SUBSTR(RUL_LNE.DESCR, 8, 3);
+   PI1         = ADDR(SPA.TBLI1);
+   PC1         = ADDR(SPA.TBLC1);
+
+   %INCLUDE QCHDEPTX;
+
+   /*
+   uput skip edit('FND_CUR_TBL:') (a);
+   uput skip edit('  Cfl_Tbl_Nam  = ', Cfl_Tbl_Nam) (a);
+   uput skip edit('  Cfl_Tbl_Nam  = ', Cfl_Tbl_Nam) (a);
+   uput skip edit('  $TabStr(1)   = ', $TabStr(1)) (a);
+   uput skip edit('  dim($TabStr) = ', dim($TabStr, 1)) (a);
+   uclose file(sysprint);
+   */
+
+   LabIx = BinSearch($TabStr, Cfl_Tbl_Nam, 1, dim($TabStr, 1));
+
+   /*
+   uput skip edit('  Labix        = ', Labix) (a);
+   uput skip edit('  $PI1IxTab(Labix) = ', $PI1IxTab(LabIx)) (a);
+   uclose file(sysprint);
+   */
+
+   if LabIx > 0 then do;
+     TBL_NAM_FND = 'Y';
+
+     if $PI1IxTab(LabIx) > 0 then
+       goto $PI1LabelTab($PI1IxTab(LabIx));
+   end;
+
+   PI1Code_Done:;
+
+ END FND_CUR_TBL;
+
+ /*===================================================================*/
+ /* TRC_RUL_HDR                                                       */
+ /* ===========                                                       */
+ /*   PUT A TRACE ENTRY BEFORE RULE EXECUTION                         */
+ /*===================================================================*/
+
+ TRC_RUL_HDR: PROCEDURE;
+
+   DCL  SC           CHAR      (  1  )                               ;
+   DCL  SCR          CHAR      (  3  )                               ;
+
+   SC = '-';
+   IF RUL_ACT_NAM = 'FILL  ' THEN DO;
+      IF RUL_ACT_SRC = 'KEY'
+      !  RUL_ACT_SRC = 'IND' THEN SC = '=';
+   END;
+
+   IF RUL_LNE.SCREEN = SPA.XFRCD THEN SCR = REPEAT(SC,2);
+                                 ELSE SCR = SPA.XFRCD    ;
+
+   %DCL ##CHK CHAR;
+   %##CHK = ##PAD('IF ' !! #SP !! '.' !! #DIAG !! ' THEN DO;',71) !!
+            ##PAD('CHR_TIM   = TIME();',71) !!
+            ##PAD('MOD_IDENT = SUBSTR(CHR_TIM, 1, 2) !!',71) !!
+            ##PAD('            '':'' !!',71) !!
+            ##PAD('            SUBSTR(CHR_TIM, 3, 2) !!',71) !!
+            ##PAD('            '':'' !!',71) !!
+            ##PAD('            SUBSTR(CHR_TIM, 5, 2) !!',71) !!
+            ##PAD('            '' '' !!',71) !!
+            ##PAD('            RUL_LNE.RULENAME;',71) !!
+            ##PAD('END;',71);
+   %ACT ##CHK NORESCAN;
+   ##CHK;
+
+   PSK(REPEAT(SC,31)      ,
+       SCR                ,
+       '-'                ,
+       RUL_LNE.PARM1      ,
+       '-'                ,
+       RUL_LNE.SCREEN     ,
+       ' '                ,
+       RUL_LNE.SUBPROC    ) ;
+
+ END TRC_RUL_HDR;
+
+ /*===================================================================*/
+ /* TRC_RUL_BEF                                                       */
+ /* ===========                                                       */
+ /*   PUT A TRACE ENTRY BEFORE RULE EXECUTION                         */
+ /*===================================================================*/
+
+ TRC_RUL_BEF: PROCEDURE;
+
+   IF ACT_TXT ^= '' THEN DO;
+      MOD_IDENT = (12)' '                         !!
+                  SUBSTR(RUL_LNE.RULENAME, 4, 3) ;
+      PSK(ACT_TXT);
+   END;
+ /*----------------------------------------------------------------*/
+   IF SKP_RULEEXE = 'N' THEN DO;
+
+      MOD_IDENT = RUL_LNE.SDTMRULE                !!
+                  ' '                             !!
+                  SUBSTR(RUL_LNE.STEP      , 2, 5)!!
+                  ' '                             !!
+                  RUL_LNE.RULEIMPL                !!
+                  SPA.RUN_MODE                    !!
+                  ' '                             !!
+                  SUBSTR(RUL_LNE.RULENAME, 4, 3) ;
+
+      PSK(SUBSTR(RUL_LNE.DESCR     , 1,14),
+          (21)' '                         ,
+          '-'                             ,
+          RUL_LNE.PARM2                   ,
+          '-'                             ,
+          SPA.CSP_USERID                  ,
+          ' '                             ,
+          $$IOLTERM          ) ;
+   END;
+   ELSE DO;
+      MOD_IDENT = (12)' '                         !!
+                  SUBSTR(RUL_LNE.RULENAME, 4, 3) ;
+
+      PSK('NOT EXECUTED');
+   END;
+
+   MOD_IDENT = '            DEP  ';
+
+ END TRC_RUL_BEF;
+
+ %INCLUDE QCHADSU ;
+
+ /*------------------------------------------------------------------*/
+ /* BinSearch:                                                       */
+ /*                                                                  */
+ /* Searches the member list using binary search for the specified   */
+ /* item.                                                            */
+ /*                                                                  */
+ /* Parameters:                                                      */
+ /*   1. char(8)         - Type                                      */
+ /*   2. char(8)         - Member                                    */
+ /*   3. fixed bin(31)   - ix1                                       */
+ /*   4. fixed bin(31)   - ix2                                       */
+ /*                                                                  */
+ /* Returns:                                                         */
+ /*   1. Fixed bin(31)   - Member index found, or 0 if not found     */
+ /*------------------------------------------------------------------*/
+
+ BinSearch: Proc(xTab, xItem, ix1, ix2) returns(fixed bin(31));
+   Dcl  xTab(*)         char(*);
+   Dcl  xItem           char(*);
+   Dcl  ix1             fixed bin(31);
+   Dcl  ix2             fixed bin(31);
+
+   Dcl  x1              fixed bin(31);
+   Dcl  x2              fixed bin(31);
+   Dcl  mid             fixed bin(31);
+
+   x1 = ix1;
+   x2 = ix2;
+
+   /*
+   uput skip edit('BinSearch:') (a);
+   uput skip edit('  ix1          = ', ix1) (a);
+   uput skip edit('  ix2          = ', ix2) (a);
+   uput skip edit('  xItem        = ', xItem) (a);
+   uput skip edit('  xTab(1)      = ', xTab(1)) (a);
+   uclose file(sysprint);
+   */
+
+   do while (x1 <= x2);
+     mid = (x1 + x2) / 2;
+
+     /*
+     uput skip edit('    mid        = ', mid) (a);
+     uput skip edit('    XTab(mid)  = ', xTab(mid)) (a);
+     uclose file(sysprint);
+     */
+
+     if xTab(mid) = xItem then do;
+
+       /*
+       uput skip edit('BinSearch returning ', mid) (a);
+       uclose file(sysprint);
+       */
+
+       return (mid);
+     end;
+
+     if xItem > xTab(mid) then
+       x1 = mid + 1;
+
+     else
+       x2 = mid - 1;
+   end;
+
+   /*
+   uput skip edit('BinSearch returning 0') (a);
+   uclose file(sysprint);
+   */
+
+   return (0);
+ end BinSearch;
+
+ END QCHDEPM;

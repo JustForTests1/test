@@ -1,0 +1,903 @@
+ %INCLUDE QCH##PAD;
+ %INCLUDE QCH##EPS;
+ QCHDUUM:PROC REORDER;
+ DCL $XTVTAB                EXT PTR;
+ DCL 1 $$VTAB BASED($XTVTAB),
+      %INCLUDE RTTSHV0;
+ %INCLUDE QCHDUUC;
+ %INCLUDE QCHDUUD;
+ %INCLUDE QCHDUUS;
+ %INCLUDE QCHDUUT;
+
+ %INCLUDE QCHPPRX;
+
+ DCL (ADDR,
+      SUBSTR,
+      NULL)           BUILTIN;
+ DCL 1 SPA           BASED($$USPAPTR),
+       %INCLUDE QCHSPAS;
+ %INCLUDE QCHDEPS;
+
+ DATEOK:ENTRY(DO_DAT,DO_RET);
+ DCL DO_DAT         CHAR(10)       ,
+     DO_RET         BIT ( 1);
+ CALL QCHDUTM ($$USPAPTR ,'DATEOK',
+                          ADDR(DO_DAT),
+                          NULL(),
+                          NULL(),
+                          ADDR(DO_RET));
+ RETURN;
+
+ ISLEAPYEAR:ENTRY(IL_DAT,IL_RET);
+ DCL IL_DAT         CHAR(10)       ,
+     IL_RET         BIT ( 1);
+ CALL QCHDUTM ($$USPAPTR ,'ISLEAPYEAR',
+                          ADDR(IL_DAT),
+                          NULL(),
+                          NULL(),
+                          ADDR(IL_RET));
+ RETURN;
+
+ MONTHDAYS:ENTRY(MD_DAT,MD_RET);
+ DCL MD_DAT         CHAR(10)       ,
+     MD_RET         DEC FIXED(2);
+ CALL QCHDUTM ($$USPAPTR ,'MONTHDAYS',
+                          ADDR(MD_DAT),
+                          NULL(),
+                          NULL(),
+                          ADDR(MD_RET));
+ RETURN;
+
+ DATECALC:ENTRY(DC_DAT,DC_VAL,DC_UNI,DC_OUT);
+ DCL DC_DAT         CHAR(10)       ,
+     DC_VAL         DEC FIXED(15,0),
+     DC_UNI         CHAR(01)       ,
+     DC_OUT         CHAR(10);
+ CALL QCHDUTM ($$USPAPTR ,'DATECALC',
+                          ADDR(DC_DAT),
+                          ADDR(DC_VAL),
+                          ADDR(DC_UNI),
+                          ADDR(DC_OUT));
+ RETURN;
+
+ GET_DYNATTRIB:ENTRY(Q$_IN1);
+ DCL Q$_IN1         PTR;
+ CALL QCHDUTM ($$USPAPTR ,'GET_DYNATTRIB',
+                          ADDR(Q$_IN1),
+                          NULL(),
+                          NULL(),
+                          NULL());
+ RETURN;
+
+ LOCMOD:ENTRY(P$_INP1,P$_INP2,P$_RET1);
+ DCL P$_INP1        ENTRY VARIABLE;
+ DCL P$_INP2        CHAR(7);
+ DCL P$_RET1        DEC FIXED(15,0);
+ CALL QCHDUTM ($$USPAPTR ,'LOCLM',
+                          ADDR(P$_INP1),
+                          ADDR(P$_INP2),
+                          NULL(),
+                          ADDR(P$_RET1));
+ RETURN;
+
+ INCREASE_UIR:ENTRY(PX_INP,PX_OUT);
+ DCL PX_INP         DEC FIXED(15,0),
+     PX_OUT         DEC FIXED(15,0);
+ CALL QCHDUTM ($$USPAPTR ,'INCREASE_UIR',
+                          ADDR(PX_INP),
+                          NULL(),
+                          NULL(),
+                          ADDR(PX_OUT));
+ RETURN;
+
+ AREA_ALLOC:ENTRY(PZ_INP,PZ_RET);
+ DCL PZ_INP         CHAR(40);
+ DCL PZ_RET         PTR;
+ CALL QCHDUTM ($$USPAPTR ,'AREA_ALLOC  ',
+                          ADDR(PZ_INP),
+                          NULL(),
+                          NULL(),
+                          ADDR(PZ_RET));
+ RETURN;
+
+ AREA_FREE:ENTRY(PFRINP);
+ DCL PFRINP         CHAR(40);
+ CALL QCHDUTM ($$USPAPTR ,'AREA_FREE   ',
+                          ADDR(PFRINP),
+                          NULL(),
+                          NULL(),
+                          NULL());
+ RETURN;
+
+ AREAPINIT:ENTRY;
+ CALL QCHDUTM ($$USPAPTR ,'AREAPINIT   ',
+                          NULL(),
+                          NULL(),
+                          NULL(),
+                          NULL());
+ RETURN;
+
+ AREA_FREEALL:ENTRY;
+ CALL QCHDUTM ($$USPAPTR ,'AREA_FREEALL',
+                          NULL(),
+                          NULL(),
+                          NULL(),
+                          NULL());
+ RETURN;
+
+ AREA_POINTER:ENTRY(PY_INP,PY_RP);
+ DCL PY_INP         CHAR(40)
+    ,PY_RP          PTR
+     ;
+ CALL QCHDUTM ($$USPAPTR ,'AREA_POINTER',
+                          ADDR(PY_INP),
+                          NULL(),
+                          NULL(),
+                          ADDR(PY_RP));
+ RETURN;
+
+ AREA4ELEMENT:ENTRY(PZ_IN1,PZ_IN2,PZ_RP);
+ DCL PZ_IN1         CHAR(40)
+    ,PZ_IN2         PTR
+    ,PZ_RP          PTR
+     ;
+ CALL QCHDUTM ($$USPAPTR ,'AREA4ELEMENT',
+                          ADDR(PZ_IN1),
+                          ADDR(PZ_IN2),
+                          NULL(),
+                          ADDR(PZ_RP));
+ RETURN;
+
+ CHECK_PATTERN:ENTRY(PW_INP,PW_PAT,PW_USE,PW_RC);
+ DCL PW_INP         CHAR(1000) VAR ,
+     PW_PAT         CHAR(1000) VAR ,
+     PW_USE         CHAR(1000) VAR ,
+     PW_RC          DEC FIXED(15,0);
+ CALL QCHDUTM ($$USPAPTR ,'CHECK_PATTERN',
+                          ADDR(PW_INP),
+                          ADDR(PW_PAT),
+                          ADDR(PW_USE),
+                          ADDR(PW_RC));
+ RETURN;
+
+ CLC_VAT_AMOUNT:ENTRY(PV_AMT,PV_PCT,PV_RNDRUL,PV_OUT_AMT);
+ DCL PV_AMT         DEC FIXED(15,2),
+     PV_PCT         DEC FIXED( 6,3),
+     PV_RNDRUL      CHAR(03)       ,
+     PV_OUT_AMT     DEC FIXED(15,2);
+ CALL QCHDUTM ($$USPAPTR ,'CLC_VAT_AMOUN',
+                          ADDR(PV_AMT),
+                          ADDR(PV_PCT),
+                          ADDR(PV_RNDRUL),
+                          ADDR(PV_OUT_AMT));
+ RETURN;
+
+ CLC_CNV_AMOUNT:ENTRY(PV_AMTC,PV_PCTC,PV_RNDRULC,PV_OUT_AMTC);
+ DCL PV_AMTC        DEC FIXED(15,2),
+     PV_PCTC        BIN FLOAT( 53),
+     PV_RNDRULC     CHAR(03)       ,
+     PV_OUT_AMTC    DEC FIXED(15,2);
+ CALL QCHDUTM ($$USPAPTR ,'CLC_CNV_AMOUN',
+                          ADDR(PV_AMTC),
+                          ADDR(PV_PCTC),
+                          ADDR(PV_RNDRULC),
+                          ADDR(PV_OUT_AMTC));
+ RETURN;
+
+ CALC_STOP_LTT:ENTRY(PU_CAS,PU_LTP,PU_VEX);
+ DCL PU_CAS         CHAR(10),
+     PU_LTP         CHAR(2),
+     PU_VEX         CHAR(10);
+ DCL 1 PU_CLCVEC,
+       2 DAGRCAS     CHAR(10),
+       2 QAGRLTP     CHAR(2);
+ PU_CLCVEC.DAGRCAS = PU_CAS;
+ PU_CLCVEC.QAGRLTP = PU_LTP;
+ CALL QCHDUTM ($$USPAPTR ,'CALC_STOP_LTT',
+                          ADDR(PU_CLCVEC),
+                          NULL(),
+                          NULL(),
+                          ADDR(PU_VEX));
+ RETURN;
+ CALC_STOP_LTP:ENTRY(PT_CAS,PT_LTP,PT_CYM,PT_FIY,PT_VEX);
+ DCL PT_CAS         CHAR(10),
+     PT_LTP         CHAR(2),
+     PT_CYM         CHAR,
+     PT_FIY         CHAR(2),
+     PT_VEX         CHAR(10);
+ DCL 1 PT_CLCVEC,
+       2 DAGRCAS     CHAR(10),
+       2 QAGRLTP     CHAR(2),
+       2 CTOCLTP     CHAR,
+       2 CFIYEMT     CHAR(2);
+ PT_CLCVEC.DAGRCAS = PT_CAS;
+ PT_CLCVEC.QAGRLTP = PT_LTP;
+ PT_CLCVEC.CTOCLTP = PT_CYM;
+ PT_CLCVEC.CFIYEMT = PT_FIY;
+ CALL QCHDUTM ($$USPAPTR ,'CALC_STOP_LTP',
+                          ADDR(PT_CLCVEC),
+                          NULL(),
+                          NULL(),
+                          ADDR(PT_VEX));
+ RETURN;
+ FIYALIGN:ENTRY(P0_CHR_STR1,P0_CHR_STR2,P0_CHR_STR3,P0_OUT_YYMMDD);
+ DCL P0_CHR_STR1    CHAR(2),
+     P0_CHR_STR2    CHAR(10),
+     P0_CHR_STR3    CHAR(2),
+     P0_OUT_YYMMDD  CHAR(10);
+ CALL QCHDUTM ($$USPAPTR ,'FIYALIGN     ',
+                          ADDR(P0_CHR_STR1),
+                          ADDR(P0_CHR_STR2),
+                          ADDR(P0_CHR_STR3),
+                          ADDR(P0_OUT_YYMMDD));
+ RETURN;
+ DATEADD:ENTRY(P1_DEC_YYMMDD,P1_AMOUNT,P1_IND,P1_OUT_YYMMDD);
+ DCL P1_DEC_YYMMDD  DEC FIXED (6),
+     P1_AMOUNT      DEC FIXED (3),
+     P1_IND         CHAR(1),
+     P1_OUT_YYMMDD  DEC FIXED (6);
+ CALL QCHDUTM ($$USPAPTR ,'DATEADD      ',
+                          ADDR(P1_DEC_YYMMDD),
+                          ADDR(P1_AMOUNT),
+                          ADDR(P1_IND),
+                          ADDR(P1_OUT_YYMMDD));
+ RETURN;
+ DB2_ADD:ENTRY(P2_CHR_DB2DAT,P2_AMOUNT,P2_IND,P2_OUT_DB2DAT);
+ DCL P2_CHR_DB2DAT  CHAR      ( 10  ),
+     P2_AMOUNT      DEC FIXED (  3  ),
+     P2_IND         CHAR      (  1  ),
+     P2_OUT_DB2DAT  CHAR      ( 10  );
+ CALL QCHDUTM ($$USPAPTR ,'DB2_ADD      ',
+                          ADDR(P2_CHR_DB2DAT),
+                          ADDR(P2_AMOUNT)    ,
+                          ADDR(P2_IND)       ,
+                          ADDR(P2_OUT_DB2DAT));
+ RETURN;
+ DATESUB:ENTRY(P3_DEC_YYMMDD,P3_AMOUNT,P3_IND,P3_OUT_YYMMDD);
+ DCL P3_DEC_YYMMDD  DEC FIXED (6),
+     P3_AMOUNT      DEC FIXED (3),
+     P3_IND         CHAR(1),
+     P3_OUT_YYMMDD  DEC FIXED (6);
+ CALL QCHDUTM ($$USPAPTR ,'DATESUB      ',
+                          ADDR(P3_DEC_YYMMDD),
+                          ADDR(P3_AMOUNT)    ,
+                          ADDR(P3_IND)       ,
+                          ADDR(P3_OUT_YYMMDD));
+ RETURN;
+ DB2_SUB:ENTRY(P4_CHR_DB2DAT,P4_AMOUNT,P4_IND,P4_OUT_DB2DAT);
+ DCL P4_CHR_DB2DAT   CHAR      ( 10  ),
+     P4_AMOUNT       DEC FIXED (  3  ),
+     P4_IND          CHAR      (  1  ),
+     P4_OUT_DB2DAT   CHAR      ( 10  );
+ CALL QCHDUTM ($$USPAPTR ,'DB2_SUB      ',
+                          ADDR(P4_CHR_DB2DAT),
+                          ADDR(P4_AMOUNT)    ,
+                          ADDR(P4_IND)       ,
+                          ADDR(P4_OUT_DB2DAT));
+ RETURN;
+ DAY:ENTRY(P5_DEC_YYMMDD,P5_DAY_DEC2);
+ DCL P5_DEC_YYMMDD DEC FIXED (6),
+     P5_DAY_DEC2   DEC FIXED (2);
+ CALL QCHDUTM ($$USPAPTR ,'DAY          ',
+                          ADDR(P5_DEC_YYMMDD),
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(P5_DAY_DEC2));
+ RETURN;
+ MONTH:ENTRY(P6_DEC_YYMMDD,P6_MONTH_DEC2);
+ DCL P6_DEC_YYMMDD DEC FIXED (6),
+     P6_MONTH_DEC2 DEC FIXED (2);
+ CALL QCHDUTM ($$USPAPTR ,'MONTH        ',
+                          ADDR(P6_DEC_YYMMDD),
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(P6_MONTH_DEC2));
+ RETURN;
+ YEAR:ENTRY(P7_DEC_YYMMDD,P7_YEAR_DEC2);
+ DCL P7_DEC_YYMMDD DEC FIXED (6),
+     P7_YEAR_DEC2  DEC FIXED (2);
+ CALL QCHDUTM ($$USPAPTR ,'YEAR         ',
+                          ADDR(P7_DEC_YYMMDD),
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(P7_YEAR_DEC2));
+ RETURN;
+ DAYS_OF_MONTH:ENTRY(P8_DEC_YYMMDD,P8_DEC_DAYS);
+ DCL P8_DEC_YYMMDD DEC FIXED (6),
+     P8_DEC_DAYS   DEC FIXED (2);
+ CALL QCHDUTM ($$USPAPTR ,'DAYS_OF_MONTH',
+                          ADDR(P8_DEC_YYMMDD),
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(P8_DEC_DAYS)) ;
+
+ RETURN;
+ CLC_MONTH:ENTRY(P9_DATE01,P9_DATE02,P9_MONTHS);
+ DCL P9_DATE01    DEC FIXED ( 6,0),
+     P9_DATE02    DEC FIXED ( 6,0),
+     P9_MONTHS    DEC FIXED ( 3,0);
+ CALL QCHDUTM ($$USPAPTR ,'CLC_MONTH    ',
+                          ADDR(P9_DATE01)    ,
+                          ADDR(P9_DATE02)    ,
+                          NULL()          ,
+                          ADDR(P9_MONTHS))   ;
+
+ RETURN;
+ CLC_DAYS:ENTRY(PA_DATE01,PA_DATE02,PA_DAYS);
+ DCL PA_DATE01    CHAR      (10  ),
+     PA_DATE02    CHAR      (10  ),
+     PA_DAYS      DEC FIXED ( 5,0);
+ CALL QCHDUTM ($$USPAPTR ,'CLC_DAYS     ',
+                          ADDR(PA_DATE01)    ,
+                          ADDR(PA_DATE02)    ,
+                          NULL()          ,
+                          ADDR(PA_DAYS))     ;
+ RETURN;
+ CLC_DAYS_30:ENTRY(PB_DATE01,PB_DATE02,PB_DAYS);
+ DCL PB_DATE01    CHAR      (10  ),
+     PB_DATE02    CHAR      (10  ),
+     PB_DAYS      DEC FIXED ( 5,0);
+ CALL QCHDUTM ($$USPAPTR ,'CLC_DAYS_30  ',
+                          ADDR(PB_DATE01)    ,
+                          ADDR(PB_DATE02)    ,
+                          NULL()          ,
+                          ADDR(PB_DAYS))     ;
+ RETURN;
+ RND_BEF_AFT:ENTRY(PC_AMOUNT,PC_CODE,PC_TEMP_CALC);
+ DCL PC_AMOUNT       DEC FIXED ( 15,4),
+     PC_CODE         CHAR      (  3  ),
+     PC_TEMP_CALC    DEC FIXED ( 15,2);
+ CALL QCHDUTM ($$USPAPTR ,'RND_BEF_AFT  ',
+                          ADDR(PC_AMOUNT)    ,
+                          ADDR(PC_CODE)      ,
+                          NULL()          ,
+                          ADDR(PC_TEMP_CALC));
+ RETURN;
+ PERCENT:ENTRY(PD_AMOUNT,PD_PERC,PD_CODE,PD_TEMP_CALC);
+ DCL PD_AMOUNT       DEC FIXED ( 15,4),
+     PD_PERC         DEC FIXED ( 15,12),
+     PD_CODE         CHAR      (  4  ),
+     PD_TEMP_CALC    DEC FIXED ( 15,2);
+ CALL QCHDUTM ($$USPAPTR ,'PERCENT      ',
+                          ADDR(PD_AMOUNT)    ,
+                          ADDR(PD_PERC)      ,
+                          ADDR(PD_CODE)      ,
+                          ADDR(PD_TEMP_CALC));
+
+ RETURN;
+ PERCENT2:ENTRY(PE_AMOUNT,PE_PERC,PE_I,PE_TEMP_CALC);
+ DCL PE_AMOUNT     DEC FIXED (15,2),
+     PE_PERC       DEC FIXED ( 5,2),
+     PE_I          DEC FIXED ( 1,0),
+     PE_TEMP_CALC  DEC FIXED (15,2),
+     PEX_TEMP_CALC DEC FIXED (15,4);
+ CALL QCHDUTM ($$USPAPTR ,'PERCENT2     ',
+                          ADDR(PE_AMOUNT)    ,
+                          ADDR(PE_PERC)      ,
+                          ADDR(PE_I)      ,
+                          ADDR(PEX_TEMP_CALC));
+ PE_TEMP_CALC = PEX_TEMP_CALC;
+ RETURN;
+ PCT_SUM_ALIGN:ENTRY(PF_AMT1,PF_PERC,PF_CODE,PF_AMT2,
+                                                 PF_AMT3,PF_TEMP_CALC);
+ DCL PF_AMT1         DEC FIXED ( 15,4),
+     PF_PERC         DEC FIXED ( 15,12),
+     PF_CODE         CHAR      (  4  ),
+     PF_AMT2         DEC FIXED ( 15,2),
+     PF_AMT3         DEC FIXED ( 15,2),
+     PF_TEMP_CALC    DEC FIXED ( 15,2);
+ DCL 1 PF_AMOUNTS,
+       2 AMOUNT1     DEC FIXED ( 15,4),
+       2 AMOUNT2     DEC FIXED ( 15,2),
+       2 AMOUNT3     DEC FIXED ( 15,2);
+ PF_AMOUNTS.AMOUNT1 = PF_AMT1;
+ PF_AMOUNTS.AMOUNT2 = PF_AMT2;
+ PF_AMOUNTS.AMOUNT3 = PF_AMT3;
+ CALL QCHDUTM ($$USPAPTR ,'PCT_SUM_ALIGN',
+                          ADDR(PF_AMOUNTS)   ,
+                          ADDR(PF_PERC)      ,
+                          ADDR(PF_CODE)      ,
+                          ADDR(PF_TEMP_CALC));
+ RETURN;
+ PCT_PCT_ALIGN:ENTRY(PG_AMT1,PG_PERC,PG_CODE,PG_PCT2,
+                     PG_AMT2,PG_TEMP_CALC);
+ DCL PG_AMT1         DEC FIXED ( 15,4),
+     PG_PERC         DEC FIXED ( 15,12),
+     PG_CODE         CHAR      (  4  ),
+     PG_PCT2         DEC FIXED ( 15,12),
+     PG_AMT2         DEC FIXED ( 15,2),
+     PG_TEMP_CALC    DEC FIXED ( 15,2);
+ DCL 1 PG_AMOUNTS,
+       2 AMOUNT1     DEC FIXED ( 15,4),
+       2 PERCNT2     DEC FIXED ( 15,12),
+       2 AMOUNT2     DEC FIXED ( 15,2);
+ PG_AMOUNTS.AMOUNT1 = PG_AMT1;
+ PG_AMOUNTS.PERCNT2 = PG_PCT2;
+ PG_AMOUNTS.AMOUNT2 = PG_AMT2;
+ CALL QCHDUTM ($$USPAPTR ,'PCT_PCT_ALIGN',
+                          ADDR(PG_AMOUNTS)   ,
+                          ADDR(PG_PERC)      ,
+                          ADDR(PG_CODE)      ,
+                          ADDR(PG_TEMP_CALC));
+ RETURN;
+ PRORATE_START:ENTRY(PH_DATE_IN,PH_DATE_OUT);
+ DCL PH_DATE_IN   DEC FIXED ( 6,0),
+     PH_DATE_OUT  DEC FIXED ( 6,0);
+ CALL QCHDUTM ($$USPAPTR ,'PRORATE_START',
+                          ADDR(PH_DATE_IN)   ,
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(PH_DATE_OUT)) ;
+ RETURN;
+ PRORATE_STOP:ENTRY(PI_DATE_IN,PI_DATE_OUT);
+ DCL PI_DATE_IN   DEC FIXED ( 6,0),
+     PI_DATE_OUT  DEC FIXED ( 6,0);
+ CALL QCHDUTM ($$USPAPTR ,'PRORATE_STOP ',
+                          ADDR(PI_DATE_IN)   ,
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(PI_DATE_OUT)) ;
+ RETURN;
+ TIMEADD:ENTRY(PJ_CHR_HHMMSS1,PJ_CHR_HHMMSS2,PJ_CHR_HHMMSSE);
+ DCL PJ_CHR_HHMMSS1 CHAR(6),
+     PJ_CHR_HHMMSS2 CHAR(6),
+     PJ_CHR_HHMMSSE CHAR(6);
+ CALL QCHDUTM ($$USPAPTR ,'TIMEADD      ',
+                          ADDR(PJ_CHR_HHMMSS1),
+                          ADDR(PJ_CHR_HHMMSS2),
+                          NULL()           ,
+                          ADDR(PJ_CHR_HHMMSSE));
+ RETURN;
+ DIF_DAT_TIM:ENTRY(PK_DEC_DATTIMF,PK_DEC_DATTIMT,PK_DEC_DAT_TIM);
+ DCL PK_DEC_DATTIMF  DEC FIXED ( 15  ),
+     PK_DEC_DATTIMT  DEC FIXED ( 15  ),
+     PK_DEC_DAT_TIM  DEC FIXED ( 15  );
+ CALL QCHDUTM ($$USPAPTR ,'DIF_DAT_TIM  ',
+                          ADDR(PK_DEC_DATTIMF),
+                          ADDR(PK_DEC_DATTIMT),
+                          NULL()           ,
+                          ADDR(PK_DEC_DAT_TIM));
+ RETURN;
+ DATECHK:ENTRY(Q1_CHR_YYMMDD,Q1_RC);
+ DCL Q1_CHR_YYMMDD  CHAR(6),
+     Q1_RC          BIN FIXED(15,0);
+ CALL QCHDUTM ($$USPAPTR ,'DATECHK      ',
+                   ADDR(Q1_CHR_YYMMDD),
+                   NULL()          ,
+                   NULL()          ,
+                   ADDR(Q1_RC))       ;
+ RETURN;
+ DAT5DAT6:ENTRY(Q2_DEC_YYDDD,Q2_DEC_YYMMDD);
+ DCL Q2_DEC_YYDDD     DEC FIXED (5),
+     Q2_DEC_YYMMDD    DEC FIXED (6);
+ CALL QCHDUTM ($$USPAPTR ,'DAT5DAT6     ',
+                          ADDR(Q2_DEC_YYDDD) ,
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(Q2_DEC_YYMMDD));
+ RETURN;
+ DAT6DAT5:ENTRY(Q3_DEC_YYMMDD,Q3_DEC_YYDDD);
+ DCL Q3_DEC_YYDDD     DEC FIXED (5),
+     Q3_DEC_YYMMDD    DEC FIXED (6);
+ CALL QCHDUTM ($$USPAPTR ,'DAT6DAT5     ',
+                          ADDR(Q3_DEC_YYMMDD) ,
+                          NULL()          ,
+                          NULL()          ,
+                         ADDR(Q3_DEC_YYDDD));
+ RETURN;
+ DAT6DAT7:ENTRY(Q4_DEC_YYMMDD,Q4_DEC_YYYYDDD);
+ DCL Q4_DEC_YYYYDDD   DEC FIXED (7),
+     Q4_DEC_YYMMDD    DEC FIXED (6);
+ CALL QCHDUTM ($$USPAPTR ,'DAT6DAT7     ',
+                          ADDR(Q4_DEC_YYMMDD),
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(Q4_DEC_YYYYDDD));
+ RETURN;
+ DEC5_TO_DB2:ENTRY(Q5_DEC_YYDDD,Q5_DB2_DATE);
+ DCL Q5_DEC_YYDDD    DEC FIXED (  5  ),
+     Q5_DB2_DATE     CHAR      ( 10  );
+ CALL QCHDUTM ($$USPAPTR ,'DEC5_TO_DB2  ',
+                          ADDR(Q5_DEC_YYDDD) ,
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(Q5_DB2_DATE)) ;
+ RETURN;
+ DEC6_TO_DB2:ENTRY(Q6_DEC_YYMMDD,Q6_DB2_DATE);
+ DCL Q6_DEC_YYMMDD   DEC FIXED (  6  ),
+     Q6_DB2_DATE     CHAR      ( 10  );
+ CALL QCHDUTM ($$USPAPTR ,'DEC6_TO_DB2  ',
+                          ADDR(Q6_DEC_YYMMDD),
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(Q6_DB2_DATE)) ;
+ RETURN;
+ CHR6_TO_DB2:ENTRY(Q7_CHR_YYMMDD,Q7_DB2_DATE);
+ DCL Q7_CHR_YYMMDD   CHAR      (  6  ),
+     Q7_DB2_DATE     CHAR      ( 10  );
+ /*PUT SKIP LIST('GHAUU:'!!Q7_CHR_YYMMDD);*/
+ CALL QCHDUTM ($$USPAPTR ,'CHR6_TO_DB2  ',
+                          ADDR(Q7_CHR_YYMMDD),
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(Q7_DB2_DATE)) ;
+ /*PUT SKIP LIST('GHAUE:'!!Q7_DB2_DATE);*/
+ RETURN;
+ CHR10_TO_DB2:ENTRY(Q8_CHR_DDMMYYYY,Q8_DB2_DATE);
+ DCL Q8_CHR_DDMMYYYY CHAR      ( 10  ),
+     Q8_DB2_DATE     CHAR      ( 10  );
+ CALL QCHDUTM ($$USPAPTR ,'CHR10_TO_DB2 ',
+                          ADDR(Q8_CHR_DDMMYYYY),
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(Q8_DB2_DATE)) ;
+ RETURN;
+ DB2_TO_DEC5:ENTRY(Q9_DB2_DATE,Q9_DEC_YYDDD);
+ DCL Q9_DEC_YYDDD    DEC FIXED (  5  ),
+     Q9_DB2_DATE     CHAR      ( 10  );
+ CALL QCHDUTM ($$USPAPTR ,'DB2_TO_DEC5  ',
+                          ADDR(Q9_DB2_DATE)  ,
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(Q9_DEC_YYDDD));
+ RETURN;
+ DB2_TO_DEC6:ENTRY(QA_DB2_DATE,QA_DEC_YYMMDD);
+ DCL QA_DEC_YYMMDD   DEC FIXED (  6  ),
+     QA_DB2_DATE     CHAR      ( 10  );
+ CALL QCHDUTM ($$USPAPTR ,'DB2_TO_DEC6  ',
+                             ADDR(QA_DB2_DATE)  ,
+                             NULL()          ,
+                             NULL()          ,
+                             ADDR(QA_DEC_YYMMDD));
+ RETURN;
+ DB2_TO_CHR6:ENTRY(QB_DB2_DATE,QB_CHR_YYMMDD);
+ DCL QB_CHR_YYMMDD   CHAR      (  6  ),
+     QB_DB2_DATE     CHAR      ( 10  );
+ CALL QCHDUTM ($$USPAPTR ,'DB2_TO_CHR6  ',
+                          ADDR(QB_DB2_DATE)  ,
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(QB_CHR_YYMMDD));
+ RETURN;
+ DB2_TO_CHR10:ENTRY(QC_DB2_DATE,QC_CHR_DDMMYYYY);
+ DCL QC_CHR_DDMMYYYY CHAR      ( 10  ),
+     QC_DB2_DATE     CHAR      ( 10  );
+ CALL QCHDUTM ($$USPAPTR ,'DB2_TO_CHR10 ',
+                          ADDR(QC_DB2_DATE)  ,
+                          NULL()          ,
+                          NULL()          ,
+                          ADDR(QC_CHR_DDMMYYYY));
+ RETURN;
+ DEC9_TO_DB2:ENTRY(QD_D_HHMMSSXXX,QD_DB2_TIME);
+ DCL QD_D_HHMMSSXXX  DEC FIXED (  9  ),
+     QD_DB2_TIME     CHAR      (  8  );
+ CALL QCHDUTM ($$USPAPTR ,'DEC9_TO_DB2  ',
+                          ADDR(QD_D_HHMMSSXXX),
+                          NULL()           ,
+                          NULL()           ,
+                          ADDR(QD_DB2_TIME))  ;
+ RETURN;
+ CHR8_TO_DB2:ENTRY(QE_C_HHMMSSXX,QE_DB2_TIME);
+ DCL QE_C_HHMMSSXX   CHAR      (  8  ),
+     QE_DB2_TIME     CHAR      (  8  );
+ CALL QCHDUTM ($$USPAPTR ,'CHR8_TO_DB2  ',
+                          ADDR(QE_C_HHMMSSXX) ,
+                          NULL()           ,
+                          NULL()           ,
+                          ADDR(QE_DB2_TIME))  ;
+ RETURN;
+ CHR9_TO_DB2:ENTRY(QF_C_HHMMSSXXX,QF_DB2_TIME);
+ DCL QF_C_HHMMSSXXX  CHAR      (  9  ),
+     QF_DB2_TIME     CHAR      (  8  );
+ CALL QCHDUTM ($$USPAPTR ,'CHR9_TO_DB2  ',
+                           ADDR(QF_C_HHMMSSXXX),
+                           NULL() ,
+                           NULL() ,
+                           ADDR(QF_DB2_TIME));
+ RETURN;
+ MAX_DB2_DAT_O:ENTRY(QG_DB2_DATE);
+ DCL QG_DB2_DATE     CHAR      ( 10  );
+ CALL QCHDUTM ($$USPAPTR ,'MAX_DB2_DAT  ',
+                           NULL() ,
+                           NULL() ,
+                           NULL() ,
+                           ADDR(QG_DB2_DATE));
+ RETURN;
+ MAX_DB2_TMP_O:ENTRY(QH_DB2_TSTAMP);
+ DCL QH_DB2_TSTAMP   CHAR      ( 26  );
+ CALL QCHDUTM ($$USPAPTR ,'MAX_DB2_TMP  ',
+                          NULL() ,
+                          NULL() ,
+                          NULL() ,
+                          ADDR(QH_DB2_TSTAMP));
+ RETURN;
+ MIN_DB2_DAT_O:ENTRY(QI_DB2_DATE);
+ DCL QI_DB2_DATE     CHAR      ( 10  );
+ CALL QCHDUTM ($$USPAPTR ,'MIN_DB2_DAT  ',
+                           NULL() ,
+                           NULL() ,
+                           NULL() ,
+                           ADDR(QI_DB2_DATE));
+ RETURN;
+ MIN_DB2_TMP_O:ENTRY(QJ_DB2_TSTAMP);
+ DCL QJ_DB2_TSTAMP   CHAR      ( 26  );
+ CALL QCHDUTM ($$USPAPTR ,'MIN_DB2_TMP  ',
+                          NULL() ,
+                          NULL() ,
+                          NULL() ,
+                          ADDR(QJ_DB2_TSTAMP));
+ RETURN;
+ MIN_DB2_TIM_O:ENTRY(QK_DB2_TIME);
+ DCL QK_DB2_TIME     CHAR      (  8  );
+ CALL QCHDUTM ($$USPAPTR ,'MIN_DB2_TIM  ',
+                          NULL() ,
+                          NULL() ,
+                          NULL() ,
+                          ADDR(QK_DB2_TIME));
+ RETURN;
+ CUR_DAT_TIM:ENTRY(QL_DEC_DAT_TIM);
+ DCL QL_DEC_DAT_TIM  DEC FIXED ( 15  );
+    CALL QCHDUTM ($$USPAPTR ,'CUR_DAT_TIM  ',
+                              NULL() ,
+                              NULL() ,
+                              NULL() ,
+                              ADDR(QL_DEC_DAT_TIM));
+ RETURN;
+ RUN_DAT_TIM:ENTRY(QN_DEC_DAT_TIM);
+ DCL QN_DEC_DAT_TIM  DEC FIXED ( 15  );
+ CALL QCHDUTM ($$USPAPTR ,'RUN_DAT_TIM  ',
+                          NULL() ,
+                          NULL() ,
+                          NULL() ,
+                          ADDR(QN_DEC_DAT_TIM));
+ RETURN;
+ RUN_DAT_TMP:ENTRY(QO_DB2_TSTAMP);
+ DCL QO_DB2_TSTAMP   CHAR      ( 26  );
+ CALL QCHDUTM ($$USPAPTR ,'RUN_DAT_TMP  ',
+                          NULL() ,
+                          NULL() ,
+                          NULL() ,
+                          ADDR(QO_DB2_TSTAMP));
+ RETURN;
+ SESSION_ID:ENTRY(QP_DEC_DAT_TIM);
+ DCL QP_DEC_DAT_TIM  DEC FIXED ( 15  );
+ CALL QCHDUTM ($$USPAPTR ,'UNIQUE_ID    ',
+                          NULL() ,
+                          NULL() ,
+                          NULL() ,
+                          ADDR(QP_DEC_DAT_TIM));
+ RETURN;
+ UNIQUE_IR:ENTRY(QQ_DEC_DAT_TIM);
+ DCL QQ_DEC_DAT_TIM  DEC FIXED ( 15  );
+ CALL QCHDUTM ($$USPAPTR ,'UNIQUE_IR    ',
+                          NULL() ,
+                          NULL() ,
+                          NULL() ,
+                          ADDR(QQ_DEC_DAT_TIM));
+ RETURN;
+ DAY_OF_WEEK:ENTRY(QR_C_YYMMDD,QR_C_DAYOFW);
+ DCL QR_C_YYMMDD     CHAR      (  6  ),
+     QR_C_DAYOFW     CHAR      (  5  );
+ CALL QCHDUTM ($$USPAPTR ,'DAY_OF_WEEK  ',
+                          ADDR(QR_C_YYMMDD) ,
+                          NULL() ,
+                          NULL() ,
+                          ADDR(QR_C_DAYOFW));
+ RETURN;
+ FLD_FREEZE:ENTRY(R1_FLD_NAM);
+ DCL R1_FLD_NAM      CHAR(  8  );
+ CALL QCHDUTM ($$USPAPTR ,'FLD_FREEZE   ',
+                          R1_FLD_NAM       ,
+                          NULL()        ,
+                          NULL()        ,
+                          NULL()      ) ;
+ RETURN;
+ FLD_HIGHLITE:ENTRY(R2_FLD_NAM);
+ DCL R2_FLD_NAM      CHAR(  8  );
+ CALL QCHDUTM ($$USPAPTR ,'FLD_HIGHLITE ',
+                          R2_FLD_NAM       ,
+                          NULL()        ,
+                          NULL()        ,
+                          NULL()      ) ;
+ RETURN;
+ GET_FLDPTR:ENTRY(R3_FLD_NAM,R3_FLD_PTR);
+ DCL R3_FLD_NAM      CHAR      (  8  ),
+     R3_FLD_PTR      PTR;
+ CALL QCHDUTM ($$USPAPTR ,'GET_FLDPTR   ',
+                          R3_FLD_NAM       ,
+                          NULL()        ,
+                          NULL()        ,
+                          R3_FLD_PTR     ) ;
+ RETURN;
+ GET_MCSPTR:ENTRY(R4_FLD_NAM,R4_FLD_PTR);
+ DCL R4_FLD_NAM      CHAR(  8  ),
+     R4_FLD_PTR      PTR;
+   CALL QCHDUTM ($$USPAPTR ,'GET_MCSPTR   ',
+                             R4_FLD_NAM       ,
+                             NULL()        ,
+                             NULL()        ,
+                             R4_FLD_PTR     ) ;
+ RETURN;
+ FLD_FRZALL:ENTRY;
+   CALL QCHDUTM ($$USPAPTR ,'FLD_FRZALL   ',
+                             NULL()        ,
+                             NULL()        ,
+                             NULL()        ,
+                             NULL()      ) ;
+ RETURN;
+ ISU_ERR_MSG:ENTRY(R6_MSG_NUM,R6_MSG_TXT,R6_MSG_SEV,R6_MSG_DEF,
+                   R6_FLD_NAM,R6_MSG_RTC);
+ DCL R6_MSG_NUM      CHAR      (  3  ),
+     R6_MSG_TXT      CHAR      (  *  ),
+     R6_MSG_SEV      CHAR      (  1  ),
+     R6_MSG_DEF      CHAR      (  1  ),
+     R6_FLD_NAM      CHAR      (  8  ),
+     R6_MSG_RTC      DEC FIXED (  2  );
+ DCL R6_PIC_RTC      PIC       '99';
+
+ R6_PIC_RTC = R6_MSG_RTC;
+
+   /*--------------------------------------------------------------*/
+   /* SET THE SPA RC ONLY TO THE PASSED RC IF THE PASSED RC IS     */
+   /* GREATER THE CURRENT SPA RC                                   */
+   /*--------------------------------------------------------------*/
+   IF R6_PIC_RTC > SPA.RC
+   THEN SPA.RC = R6_PIC_RTC;
+
+   /*--------------------------------------------------------------*/
+   IF R6_MSG_DEF = 'D'
+   THEN SPA.MSG_DEFERRED = '1'B;
+
+   SPA.MSGNO  = R6_MSG_NUM ;
+   SPA.MSGSEV = R6_MSG_SEV ;
+   SPA.VARTXT = R6_MSG_TXT ;
+
+   CALL QCHDUTM ($$USPAPTR ,'ISU_ERR_MSG  ',
+                             R6_FLD_NAM       ,
+                             NULL()        ,
+                             NULL()        ,
+                             NULL()      ) ;
+   SPA.MSGNO  = '' ;
+   SPA.MSGSEV = '' ;
+   SPA.VARTXT = '' ;
+
+ RETURN;
+ SET_CURSOR:ENTRY(R7_FLD_NAM);
+
+ DCL R7_FLD_NAM      CHAR      (  8  );
+
+   CALL QCHDUTM ($$USPAPTR ,'SET_CURSOR   ',
+                             R7_FLD_NAM       ,
+                             NULL()        ,
+                             NULL()        ,
+                             NULL()      ) ;
+ RETURN;
+
+    /*------------------------------------------------------------*/
+    /* TST_DIVIDE PROCEDURE CHECKS THE DIVISION OF THE FIRST      */
+    /* FIGURE BY THE SECOND ONE THAT IS PASSED WHEHTER OR NOT     */
+    /* THE RESULTS FIT INTO THE PASSED LENGTH OF THE RESULT-FIELD */
+    /*------------------------------------------------------------*/
+
+ TST_DIVIDE: ENTRY(R8_DEN,R8_DOR,R8_BEF,R8_RET);
+
+   DCL R8_DEN         DEC FLOAT(6),
+       R8_DOR         DEC FLOAT(6),
+       R8_BEF         BIN FIXED(15),
+       R8_RET         BIT(1);
+
+   DCL R8_PIC_DEN     PIC 'V.999999ES99',
+       R8_CHR_DEN     CHAR (11) BASED(ADDR(R8_PIC_DEN)),
+       R8_PI3_DEN     PIC  'S99' DEF R8_CH3_DEN,
+       R8_CH3_DEN     CHAR (3);
+
+   DCL R8_PIC_DOR     PIC 'V.999999ES99',
+       R8_CHR_DOR     CHAR (11) BASED(ADDR(R8_PIC_DOR)),
+       R8_PI3_DOR     PIC  'S99',
+       R8_CH3_DOR     CHAR (3) BASED(ADDR(R8_PI3_DOR));
+
+   R8_PIC_DEN = R8_DEN;
+   R8_CH3_DEN = SUBSTR(R8_CHR_DEN,9,3);
+   R8_PIC_DOR = R8_DOR;
+   R8_CH3_DOR = SUBSTR(R8_CHR_DOR,9,3);
+
+   SELECT;
+     WHEN(R8_DOR = 0)
+        R8_RET = '1'B;
+
+     WHEN(R8_PI3_DEN - R8_PI3_DOR > R8_BEF)
+        R8_RET = '1'B;
+
+     WHEN(R8_PI3_DEN - R8_PI3_DOR = R8_BEF)
+       DO;
+         IF  SUBSTR(R8_CHR_DEN,2,1) < SUBSTR(R8_CHR_DOR,2,1) THEN DO;
+            R8_RET = '0'B;
+         END;
+         ELSE DO;
+            R8_RET = '1'B;
+         END;
+       END;
+
+     OTHER
+         R8_RET = '0'B;
+   END;
+
+   IF R8_RET THEN DO;
+     PUT SKIP LIST('DIVISION NOT POSSIBLE ššš');
+     PUT SKIP LIST('   BEF_MAC >',R8_BEF,'<');
+     PUT SKIP LIST('   DEN_MAC >',R8_DEN,'<');
+     PUT SKIP LIST('   DOR_MAC >',R8_DOR,'<');
+     PUT SKIP LIST('   EXP1_MAC>',R8_PI3_DEN,'<2>',
+                                   R8_PI3_DOR,'<');
+   END;
+
+   RETURN;
+
+    /*------------------------------------------------------------*/
+    /* SETS AN MVS LOCK TO ENABLE PROCESS SYNCHRONISATION IN A    */
+    /* MULTI TASKING ENVIRONMENT                                  */
+    /*------------------------------------------------------------*/
+
+ LOCK_SET: ENTRY(R9_QNAME,R9_RNAME,R9_SCOPE,R9_TYPE,R9_REQTYPE,R9_RC);
+
+   DCL R9_QNAME       CHAR(8),
+       R9_RNAME       CHAR(255) VAR,
+       R9_SCOPE       CHAR(*),
+       R9_TYPE        CHAR(*),
+       R9_REQTYPE     CHAR(*),
+       R9_RC          FIXED BIN(31,0);
+
+   DCL R9_ARR(3)      CHAR(16) AUTO;
+   R9_ARR(1) = R9_SCOPE;
+   R9_ARR(2) = R9_TYPE;
+   R9_ARR(3) = R9_REQTYPE;
+   CALL QCHDUTM ($$USPAPTR ,'LOCK_SET     ',
+                             ADDR(R9_QNAME)   ,
+                             ADDR(R9_RNAME),
+                             ADDR(R9_ARR(1)),
+                             ADDR(R9_RC) ) ;
+   RETURN;
+
+    /*------------------------------------------------------------*/
+    /* TEST THE STATUS OF A MVS LOCK                              */
+    /*------------------------------------------------------------*/
+
+ LOCK_TEST: ENTRY(RA_QNAME,RA_RNAME,RA_SCOPE,RA_TYPE,RA_RC);
+
+   DCL RA_QNAME       CHAR(8),
+       RA_RNAME       CHAR(255) VAR,
+       RA_SCOPE       CHAR(*),
+       RA_TYPE        CHAR(*),
+       RA_RC          FIXED BIN(31,0);
+
+   DCL RA_ARR(2)      CHAR(16) AUTO;
+   RA_ARR(1) = RA_SCOPE;
+   RA_ARR(2) = RA_TYPE;
+   CALL QCHDUTM ($$USPAPTR ,'LOCK_TEST    ',
+                             ADDR(RA_QNAME)   ,
+                             ADDR(RA_RNAME),
+                             ADDR(RA_ARR(1)),
+                             ADDR(RA_RC) ) ;
+   RETURN;
+
+    /*------------------------------------------------------------*/
+    /* FREE A MVS LOCK                                            */
+    /*------------------------------------------------------------*/
+
+ LOCK_FREE: ENTRY(RB_QNAME,RB_RNAME,RB_SCOPE,RB_RC);
+
+   DCL RB_QNAME       CHAR(8),
+       RB_RNAME       CHAR(255) VAR,
+       RB_SCOPE       CHAR(*),
+       RB_RC          FIXED BIN(31,0);
+
+   DCL RB_ARR         CHAR(16) AUTO;
+   RB_ARR = RB_SCOPE;
+   CALL QCHDUTM ($$USPAPTR ,'LOCK_FREE    ',
+                             ADDR(RB_QNAME)   ,
+                             ADDR(RB_RNAME),
+                             ADDR(RB_ARR),
+                             ADDR(RB_RC) ) ;
+   RETURN;
+
+ END QCHDUUM;

@@ -1,0 +1,495 @@
+ /********************************************************************/
+ /* MODULE NAME  : QCHRE1M                                            */
+ /* APPLICATION  : CHIS DRIVER         (C) COPYRIGHT IBM CORP. 1991   */
+ /*-------------------------------------------------------------------*/
+ /* FUNCTION     : ISSUE ERRORMSG ( FLGFLD ) IMMEDIATELY OR DEFFERED  */
+ /* AUTHOR       : M. IWANIEWICZ                                      */
+ /* DATE         : 1988-04-11                                         */
+ /* HISTORY      : TYPE HIST IN COMMAND LINE AND PRESS ENTER          */
+ /********************************************************************/
+****
+   %INCLUDE QCH##PAD;
+   %INCLUDE QCH##EPS;
+ QCHRE1M : PROC (MCS_PTR,ERR_NUM,SEVERITY,ERR_TXT) REORDER ;
+   #MODIDENT(QCHRE1M);
+
+   %INCLUDE QCHDEPS;
+   %INCLUDE QCHSHYSP;
+   %INCLUDE RTTSHYS;
+   %INCLUDE QCHSHYSX;
+   %INCLUDE QCHSHYSS;
+   %INCLUDE QCHGUIS;
+   %INCLUDE QCHZMSGM;
+   %INCLUDE QCHZRCS;
+   %DEACT RWBRE1M;
+
+   DCL  1 SP BASED($$USPAPTR) ,      %INCLUDE QCHSPAS; ;
+   DCL  1 SPP BASED(SP.PTRP1),       %INCLUDE QCHPTRS; ;
+
+   DCL  MCS_PTR      PTR                                             ;
+   DCL  ERR_NUM      CHAR      (  6  )                               ;
+   DCL  SEVERITY     CHAR      (  1  )                               ;
+   DCL  ERR_TXT      CHAR      (  *  )                               ;
+
+   DCL  TRC_TXT      CHAR      (150  )      VAR                      ;
+
+   DCL  MOD_IDENT    CHAR      ( 17  )      INIT('         QCHRE1M ');
+
+   DCL  ERR_PRF      CHAR      (  3  )                               ;
+   DCL  RE1MTXT      CHAR      ( 80  ) EXTERNAL                      ;
+   DCL  MSG_TXT      CHAR      ( 80  )                               ;
+   DCL  DFR_TXT      CHAR      ( 80  )                               ;
+
+ /* GHA rwbtdup start */
+
+   %include rwbtdup;
+
+   DCL  err_number   CHAR      (  3  )                               ;
+   DCL  pic_number   pic        '999' based(addr(err_number));
+   DCL  bin_number   bin fixed(15) init(0);
+   DCL  loc_msg_ii   bin fixed(15) init(0);
+
+   DCL PTRADD BUILTIN;
+
+   DCL SYSPRINT FILE PRINT;
+ /* GHA rwbtdup end   */
+
+   DCL VERIFY BUILTIN;
+
+ /*-------------------------------------------------------------------*/
+ /* PROGRAM LOGIC STARTS                                              */
+ /*-------------------------------------------------------------------*/
+
+
+
+   ERR_PRF = SP.SYSPREF;
+
+   ERR_NUM = ERR_PRF !!
+             SUBSTR(ERR_NUM, 4, 3);
+
+   IF SP.RUN_MODE = 'B'
+   !  SP.RUN_MODE = 'N' THEN DO;
+      OPEN  FILE(SYSPRINT);
+      PUT SKIP EDIT('********************************************') (A);
+      PUT SKIP EDIT('* MSG SETTING IN BATCH NOT ALLOWED         *') (A);
+      PUT SKIP EDIT('* QCHRE1M WAS CALLED WITH                  *') (A);
+      PUT SKIP EDIT('* ERR_NUM/SEVERITY/ERR_TXT                 *') (A);
+      PUT SKIP EDIT('* ',ERR_NUM,'/',SEVERITY,'/',ERR_TXT         ) (A);
+      PUT SKIP EDIT('********************************************') (A);
+      CLOSE FILE(SYSPRINT);
+      SIGNAL ERROR;
+   END;
+
+   RE1MTXT = REPEAT('RE1MTXT-',9);
+
+   CALL QCHDTTM ('QCHRE1M', ERR_NUM!!SEVERITY!!ERR_TXT);
+
+   /*-----------------------------------------------------------------*/
+   /* SEVERITY "D" MEANS THAT THE INITIAL MSG SEVERITY SHOULD BE TAKEN*/
+   /* THE STDM MODULE RWBRMGM RETURNS THE MESSAGE TEXT LOADED FROM    */
+   /* RWBTDUP OF THE PASSED MESSAGE NUMBER                            */
+   /*-----------------------------------------------------------------*/
+   if sp.run_mode = 'G' then do;
+
+     if sp.ddiag = '1'b then do;
+       open  file(SYSPRINT);
+ /*    put skip edit('before rwbrmgm ->',
+                     Err_Num,
+                     ',''',
+                     err_txt,
+                     ''',',
+                     õõlangid,
+                     ') = <',
+                     re1mtxt,
+                     '>') (a);*/
+     put skip edit('LanguageID *'!!õõLANGID!!'* changed to blank')(A);
+       close file(SYSPRINT);
+     end;
+
+     õõLANGID = '  ';
+
+ /* GHA rwbtdup start */
+     if sp.ddiag = '1'b then
+       open  file(SYSPRINT);
+
+     call get_ims_msg;
+
+     if sp.ddiag = '1'b then do; /* test gha*/
+       put skip list('---------------------------------------');
+       put skip list('Err_num :'!!Err_Num!!':'!!length(err_num));
+       put skip list('Err_txt :'!!err_txt!!':'!!length(err_txt));
+       put skip list('re1mtxt :'!!re1mtxt!!':'!!length(re1mtxt));
+       put skip list('---------------------------------------');
+       close file(SYSPRINT);
+     end;
+ /* GHA rwbtdup end   */
+
+   end;
+
+ /* GHA rwbtdup start */
+   else
+ /* GHA rwbtdup end   */
+     CALL RWBRMGM(ERR_NUM , ERR_TXT , õõLANGID , RE1MTXT);
+
+   MSG_TXT = RE1MTXT ;
+
+   IF SEVERITY = 'D' THEN DO;
+      SEVERITY = SUBSTR (MSG_TXT,8,1);
+   END;
+
+   If SP.run_Mode = 'G' then do; /* API GUI request                  */
+     call ProcessGUIMsg;
+     return;
+   end;
+
+ /*-------------------------------------------------------------------*/
+   /* DON'T STACK IT BECAUSE THIS MESSAGE IS NOT DEFERRABLE           */
+   /*             OR         ITS A MANDATORY ERROR MSG.               */
+   /*             OR         WE ARE ON THE OUTPUT SIDE                */
+   /*             OR         A DEFERRED MESSAGE IS STACKED            */
+   /*             OR         IT'S NOT A CHIS MESSAGE                  */
+   /*             OR         IT'S NOT A FLGFLD(*)                     */
+   /*-----------------------------------------------------------------*/
+
+   IF SP.MSG_DEFERRED        = '0'B
+   !  SEVERITY               = 'M'
+   !  õõOIPARM               = 'O'
+   !  SUBSTR(ERR_NUM,1,3) ^= ERR_PRF
+   !  MCS_PTR               ^= ##NULLPTR THEN DO;
+      SP.MSG_UNSTACKED = '1'B;
+   END;
+
+ /*-------------------------------------------------------------------*/
+ /* IF NO STACKIN POSSIBLE                                            */
+ /*-------------------------------------------------------------------*/
+
+   IF SP.MSG_UNSTACKED THEN DO;
+      /*--------------------------------------------------------------*/
+      /* CHECK IF THERE IS A DEFERRED MSG STACKED. IF YES ISSUE IT    */
+      /* BEFORE THE CURRENT MESSAGE IS ISSUED.                        */
+      /*--------------------------------------------------------------*/
+
+      CALL ISSUE_DEFFERED;
+
+    /*----------------------------------------------------------------*/
+      /* & FLGFLD IMMEDIATELY                                         */
+      /*--------------------------------------------------------------*/
+
+      CALL RWBRE1M (MCS_PTR,ERR_NUM,SEVERITY,ERR_TXT);
+
+      IF SP.DDIAG THEN DO;
+         OPEN  FILE(SYSPRINT);
+         PUT SKIP EDIT('MSG ISSUED: ',MSG_TXT)(A) ;
+         CLOSE FILE(SYSPRINT);
+      END;
+
+      IF õõOIPARM = 'I' THEN DO;
+         IF SEVERITY = 'M' THEN SP.PREV_SCRN_HAD_ERRORS = '1'B;
+                           ELSE SP.PREV_SCRN_HAD_MSGS   = '1'B;
+      END;
+      ELSE DO;
+         /*--------------------*/
+         /* WHY ONLY FOR 'I' ? */
+         /*--------------------*/
+      END;
+   END;
+ /*-------------------------------------------------------------------*/
+ /*       STACKIN POSSIBLE, JUST STACK IT                             */
+ /*-------------------------------------------------------------------*/
+   ELSE DO;
+      SP.DMSGNO              = SUBSTR(ERR_NUM,4);
+      SP.DMSGSEV             = SEVERITY;
+      SP.DVARTXT             = ERR_TXT;
+      SP.PREV_SCRN_HAD_DMSGS = '1'B;
+   END;
+                                       /* O-MSGS NEVER STACKED        */
+   IF õõOIPARM = 'O' THEN
+      SP.MSG_UNSTACKED = '0'B;
+                                       /* RESET MSG DEFER REQUEST     */
+   SP.MSG_DEFERRED = '0'B;
+   RETURN;
+
+ /*-------------------------------------------------------------------*/
+ /* ProcessGUIMsg:                                                    */
+ /*   Since running in GUI mode (SPA.Run_Mode = 'G'), instead of      */
+ /*   handling this message as a screen error, simply create a message*/
+ /*   object for the current GUI response.                            */
+ /*-------------------------------------------------------------------*/
+
+ ProcessGUIMsg: Proc Reorder;
+   Dcl MsgRC fixed bin(31) init(0);
+
+ /*-------------------------------------------------------------------*/
+ /* If msg severity is Mandatory, then set MsgRC = 12.                */
+ /*-------------------------------------------------------------------*/
+
+   MsgRC = 0;
+   if Severity = APIRC_MSGSEV_MANDATORY then
+     MsgRC = RC_EOP_ROLB;
+
+ /*-------------------------------------------------------------------*/
+ /* Create the API message object via APIMSG macro                    */
+ /*-------------------------------------------------------------------*/
+   IF SP.DDIAG THEN DO;
+     open  file(SYSPRINT);
+     put skip edit('QCHFLD API MESSAGE (',
+                   Err_Num,
+                   ',''',
+                   Severity,
+                   ''',',
+                   MsgRC,
+                   ') = <',
+                   Msg_Txt,
+                   '>') (a);
+     close file(SYSPRINT);
+   END;
+
+   APIMSG(substr(Err_Num,4),Severity)
+     Text(Msg_Txt)
+     MSGRC(MsgRC);
+
+ end ProcessGUIMsg;
+
+ /*-------------------------------------------------------------------*/
+ /* ISSUE DEFERRED MESSAGE. THIS ENTRY IS CALLED AS THE               */
+ /* 1ST OUTPUT RULE ON ANY SCR (AS 2ND RULE AFTER MSSM ON AA-SCREENS) */
+ /*-------------------------------------------------------------------*/
+ ISSUE_DEFFERED:PROC;
+
+   DCL  DFR_NUM      CHAR      (  6  )                               ;
+
+   IF SP.DMSGNO = '' THEN DO;
+      RETURN;
+   END;
+
+   IF SP.DDIAG THEN DO;
+     OPEN  FILE(SYSPRINT);
+     PUT SKIP EDIT('MSGNO: ',SP.DMSGNO) (A);
+     CLOSE FILE(SYSPRINT);
+   END;
+
+   ERR_PRF = SP.SYSPREF;
+
+   DFR_NUM = ERR_PRF  !!
+             SP.DMSGNO ;
+
+   CALL RWBRMGM(DFR_NUM, SP.DVARTXT , õõLANGID , RE1MTXT);
+
+   DFR_TXT = RE1MTXT ;
+
+   CALL RWBRE1M (##NULLPTR, DFR_NUM, SP.DMSGSEV, SP.DVARTXT);
+
+   SP.DMSGNO  = '';
+   SP.DMSGSEV = '';
+   SP.DVARTXT = '';
+
+   SP.MSG_UNSTACKED = '1'B;
+
+   IF õõOIPARM = 'I' THEN DO;
+      SP.PREV_SCRN_HAD_MSGS = '1'B;
+   END;
+
+   IF SP.DDIAG THEN DO;
+      OPEN  FILE(SYSPRINT);
+      PUT SKIP EDIT('MSG ISSUED: ',DFR_TXT)(A) ;
+      CLOSE FILE(SYSPRINT);
+   END;
+
+ END ISSUE_DEFFERED;
+
+ /* GHA rwbtdup start */
+ /*-------------------------------------------------------------------*/
+ get_ims_msg: proc;
+ /*-------------------------------------------------------------------*/
+   /* ------------------------------------------------------------ */
+   /*                                                              */
+   /* This procdeure is for temporary use to get an IMS message    */
+   /* from RWBTDUP during execution of the GUI BMP (QCHBMMP).      */
+   /*                                                              */
+   /* Due to a mixed environment LE and NonLE the IMS access does  */
+   /* work only in 99 of 100 attempts.                             */
+   /*                                                              */
+   /* This is now retrieving the message from a preallocated array */
+   /* The access distinguishes between numeric and non numeric     */
+   /* messages. The numeric ones are a concatenated long string in */
+   /* memory and can be accessed now in top high performance mode  */
+   /* simply by adding the pointers and string basement.           */
+   /* Also the non numeric messages are retrieved by a high        */
+   /* performance message array, but they are very small compared  */
+   /* with the numeric ones.                                       */
+   /*                                                              */
+   /* The include RWBTDUP must be part of this member only, and is */
+   /* automatically generated by building the member RWBTDUP in    */
+   /* the MESSAGES type with the language definition RWBMSG.       */
+   /* The messagearray based on RWBTDUP is generated automatically.*/
+   /*                                                              */
+   /* ------------------------------------------------------------ */
+
+   err_number = substr(err_num,4,3);
+   if sp.ddiag = '1'b then
+     put skip list('err_numb:'!!err_number);
+
+   if verify(err_number,$õõnumeric) = 0 then do;
+
+     bin_number = pic_number;
+     p_$õõmsg_arr = ptradd(p_$õõmsg_sav,bin_number*$õõmsg_len);
+
+     if verify(SEVERITY,$õõsevcode) then
+       SEVERITY = p_$õõmsg_arr -> $õõmsg_severi;
+
+     p_$õõmsg_arr = ptradd(p_$õõmsg_arr,1);
+     RE1MTXT  = p_$õõmsg_arr -> $õõtxt_string;
+   /*
+   if sp.ddiag = '1'b then do;
+   put skip list('txt_stri:'!!
+                 p_$õõmsg_arr -> $õõtxt_string !! ':'
+       !!length( p_$õõmsg_arr -> $õõtxt_string));
+
+   put skip list('er1_t1t :'!!RE1MTXT!!':'!!length(RE1MTXT));
+   put skip list('severity:'!!severity!!':'!!
+                p_$õõmsg_arr -> $õõmsg_severi);
+   end;
+   */
+
+   end;
+   else do;
+
+     if c_$õõlocmsg > 0 then do;
+
+       do loc_msg_ii = 1 to p_$õõlocmsg->$õõlocmsg_data.countr
+       until ( p_$õõlocmsg ->
+            $õõlocmsg_data.rows(loc_msg_ii).$õõlocmsg_nbr = err_number);
+       end;
+
+       if loc_msg_ii <= p_$õõlocmsg->$õõlocmsg_data.countr then do;
+
+         if verify(SEVERITY,$õõsevcode) then
+           SEVERITY = substr( p_$õõlocmsg ->
+              $õõlocmsg_data.rows(loc_msg_ii).$õõlocmsg_txt , 1 , 1 );
+
+         RE1MTXT  = substr( p_$õõlocmsg ->
+            $õõlocmsg_data.rows(loc_msg_ii).$õõlocmsg_txt , 2
+                                                          , $õõtxt_len);
+       end;
+       else do;
+         SEVERITY = 'I';
+         RE1MTXT  = 'Message not defined';
+       end;
+     end;
+     else do;
+       SEVERITY = 'I';
+       RE1MTXT  = 'Message not defined';
+     end;
+
+   end;
+
+   if index(RE1MTXT,'*V') ^= 0 then
+     RE1MTXT = resolve_var(ERR_TXT,RE1MTXT);
+
+   if sp.ddiag = '1'b then do;
+     put skip list('severity:'!!severity);
+     put skip list('re1mtxt :'!!re1mtxt);
+   end;
+
+ end get_ims_msg;
+
+ /*-------------------------------------------------------------------*/
+ resolve_var: proc(ristr,rmstr) returns(char(80));
+ /*-------------------------------------------------------------------*/
+
+ dcl ristr          char(16);
+ dcl rmstr          char(80);
+ dcl pos_comma      bin fixed(31) init(0)        auto;
+ dcl pos_v          bin fixed(31) init(0)        auto;
+ dcl looping        bit(1)        init('1'B)     auto;
+
+ dcl var_var        char( 16) var auto;
+ dcl var_subst      char( 16) var auto;
+ dcl var_message    char(150) var auto;
+                               /* store parameters in local varibles  */
+ var_var     = ristr;
+ var_message = trim(rmstr);
+
+ /*
+ put skip list('--------------------------------------- ');
+ put skip list('var_var     :'!!var_var!!length(var_var));
+ put skip list('var_message :'!!var_message);
+ put skip list('--------------------------------------- ');
+ */
+
+ do while(looping);
+
+   pos_comma = index(var_var,',');  /* get position of delimiter      */
+
+   if pos_comma = 0 then do;        /* last variable for substitution */
+     looping = '0'B;
+     pos_comma = length(var_var)+1; /* +1 only because subtracted belo*/
+   end;
+
+   var_subst = substr(var_var,1,pos_comma-1);
+   if var_subst = ' ' then     /* multiple blanks r subst. with one   */
+     var_subst = ' ';          /* single blank                        */
+
+   if looping then             /* minimize string for next variable   */
+     var_var = substr(var_var,pos_comma+1);
+   else do;
+     var_var = '';             /* last parameter trim blanks          */
+     if var_subst ^= ' ' then
+       var_subst = trim(var_subst);
+   end;
+   /*
+   put skip list('var_subst  :'!!var_subst!!length(var_subst));
+   put skip list('var_var    :'!!var_var!!length(var_var));
+   */
+                               /* Get position of variable *V         */
+   pos_v = index(var_message,'*V');
+   if pos_v > 0 then do;
+     var_message  =  substr(var_message,1,pos_v-1)
+                 !!  var_subst
+                 !!  substr(var_message,pos_v+2);
+  /* put skip list('var_message:'!!var_message!!length(var_message));*/
+   end;
+
+ end;
+
+ return(var_message);
+
+ end resolve_var;
+
+ Trim: Proc(Str) returns(char(32765) var);
+   Dcl  Str             char(*);
+
+   Dcl  i               fixed bin(31);
+   Dcl  TrimStr         char(32765) var;
+
+   TrimStr = '';               /* Initial return string is Str       */
+
+   i = verify(Str,' ');        /* Find first non-blank               */
+   if i > 0 then do;           /* Found a non-blank after zero or more
+                                  leading blanks                     */
+     TrimStr = substr(Str,i);  /* Remove leading blanks              */
+
+     do i = length(TrimStr) to 1 by -1
+            while (substr(TrimStr,i,1) = ' ');
+     end;
+
+     TrimStr = substr(TrimStr,1,i);
+   end;
+
+   return (TrimStr);
+ end Trim;
+
+ /* GHA rwbtdup end and thx for the trim function :-)  */
+
+ /*-------------------------------------------------------------------*/
+ /* ISSUE DEFERRED MESSAGE. THIS ENTRY IS CALLED AS THE               */
+ /* 1ST OUTPUT RULE ON ANY SCR (AS 2ND RULE AFTER MSSM ON AA-SCREENS) */
+ /*-------------------------------------------------------------------*/
+
+ QCHRE1O: ENTRY;
+
+   CALL ISSUE_DEFFERED;
+
+   RETURN;
+
+ END QCHRE1M ;

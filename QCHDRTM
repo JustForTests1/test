@@ -1,0 +1,756 @@
+ /*********************************************************************/
+ /* MODULE NAME  : QCHDRTM                                            */
+ /* APPLICATION  : CHIS                (C) COPYRIGHT IBM CORP. 1991   */
+ /*-------------------------------------------------------------------*/
+ /* FUNCTION     : DO "ONCE PER ENTER" TABLE STRUCTURE ALLOC+INIT     */
+ /* >>>>>>>>     : CALLED FROM MSSM,SPAM ( AFTER EVERY ENTER )        */
+ /* >>>>>>>>     : CALLED RECURSIVELY VIA DDDM                        */
+ /* AUTHOR       : F. GROSSENBERGER                                   */
+ /* DATE         : 13-03-1987                                         */
+ /* HISTORY      : TYPE HIST IN COMMAND LINE AND PRESS ENTER          */
+ /* $P1=DBCSPRT,6.2,06/23/98,DFE: NEW NLS-TRANSLATED-TEXT-TABLE NLT   */
+ 
+ /*********************************************************************/
+   %INCLUDE QCH##PAD;
+   %INCLUDE QCH##EPS;
+ QCHDRTM : PROC ($$USPAPTR) REORDER;
+   #MODIDENT(QCHDRTM);
+   DFT  RANGE(*) STATIC;
+
+   %INCLUDE QCHDEPS;
+
+   DCL  $$USPAPTR POINTER;
+   DCL  $XTVTAB   POINTER            EXTERNAL        ;
+   DCL 1 SP BASED ($$USPAPTR), %INCLUDE QCHSPAS ; ;
+
+ /*-------------------------------------------------------------------*/
+ /****   DECLARATIONS OF PARAMETERS PASSED AND ASSOCIATED AREAS   ****/
+ /*-------------------------------------------------------------------*/
+
+   DCL  (NULL,ADDR)  BUILTIN;
+
+ /*-------------------------------------------------------------------*/
+ /* PROGRAM LOGIC STARTS                                              */
+ /* PUT A TRACE TABLE ENTRY                                           */
+ /*-------------------------------------------------------------------*/
+
+   CALL QCHDTTM ('QCHDRTM ', SP.RUN_MODE);
+
+   DCL 1 SPP BASED(SP.PTRP1),      %INCLUDE QCHPTRS; ;
+   DCL 1 SP2 BASED(SPP.PTRP2),     %INCLUDE QCHPTR2; ;
+
+ /*-------------------------------------------------------------------*/
+ /* INITIALIZE HELP POINTER FOR OBJECTCHAINLOOP                       */
+ /*-------------------------------------------------------------------*/
+   SPP.X$XP1 = NULL;
+
+ /*-------------------------------------------------------------------*/
+ /* STRUCTURE FOR POINTERS TO STRUCTURES OF FOREIGN APPLICATIONS      */
+ /*-------------------------------------------------------------------*/
+   DCL 1 FAPS STATIC, %INCLUDE QCHPFAP;;
+   FOREIGNAPPLS = ADDR (FAPS);
+   FAPS=NULL;
+
+ /*-------------------------------------------------------------------*/
+ /* ACCENT OBJECT POINTER STRUCTURE                                   */
+ /*-------------------------------------------------------------------*/
+   DCL 1 CLAS STATIC, %INCLUDE QCHPOBJ;; CLASS = ADDR (CLAS); CLAS=NULL;
+
+ /*-------------------------------------------------------------------*/
+ /* PARAMETER PASSING STRUCTURE FOR CFLS                              */
+ /*-------------------------------------------------------------------*/
+   DCL 1 COMS STATIC, %INCLUDE QCHCOMS;; COMP1 = ADDR (COMS); COMS='';
+   DCL 1 CMMS STATIC, %INCLUDE QCHCMMS;; CMMP1 = ADDR (CMMS);
+         CMMS.COMMON = '';
+ /*DCL 1 BMSS STATIC, %INCLUDE QCHBMSS;;                        OBS810*/
+ /*                           BMSP1 = ADDR (BMSS); BMSS='';     OBS810*/
+
+   SPP.PROCESS = NULL;
+   SPP.CURPROC = NULL;
+
+ /* DBCS DECLARES BEGIN -------------------------------------------*/
+   DCL 1 NLC1 STATIC, %INCLUDE QCHNLCS;; NLCP1 = ADDR (NLC1); NLC1='';
+   DCL 1 NCT1 STATIC, %INCLUDE QCHNCTS;; NCTP1 = ADDR (NCT1); NCT1='';
+   DCL 1 NLS1 STATIC, %INCLUDE QCHNLSS;; NLSP1 = ADDR (NLS1); NLS1='';
+   DCL 1 NLT1 STATIC, %INCLUDE QCHNLTS;; NLTP1 = ADDR (NLT1); NLT1='';
+ /* DBCS DECLARES END   -------------------------------------------*/
+
+ /* NEW TABLE DECLARES  -------------------------------------------*/
+   DCL 1 BOR1 STATIC, %INCLUDE QCHBORS;; BORP1 = ADDR (BOR1); BOR1='';
+   DCL 1 GFD1 STATIC, %INCLUDE QCHGFDS;; GFDP1 = ADDR (GFD1); GFD1='';
+   DCL 1 GFO1 STATIC, %INCLUDE QCHGFOS;; GFOP1 = ADDR (GFO1); GFO1='';
+   DCL 1 PPR1 STATIC, %INCLUDE QCHPPRS;; PPRP1 = ADDR (PPR1); PPR1='';
+   DCL 1 PRO1 STATIC, %INCLUDE QCHPROS;; PROP1 = ADDR (PRO1); PRO1='';
+   DCL 1 TCT1 STATIC, %INCLUDE QCHTCTS;; TCTP1 = ADDR (TCT1); TCT1='';
+   DCL 1 TFC1 STATIC, %INCLUDE QCHTFCS;; TFCP1 = ADDR (TFC1); TFC1='';
+   DCL 1 TFD1 STATIC, %INCLUDE QCHTFDS;; TFDP1 = ADDR (TFD1); TFD1='';
+   DCL 1 TWW1 STATIC, %INCLUDE QCHTWWS;; TWWP1 = ADDR (TWW1); TWW1='';
+   DCL 1 CWS1 STATIC, %INCLUDE QCHCWSS;; CWSP1 = ADDR (CWS1); CWS1='';
+   DCL 1 UCL1 STATIC, %INCLUDE QCHUCLS;; UCLP1 = ADDR (UCL1); UCL1='';
+   DCL 1 UPF1 STATIC, %INCLUDE QCHUPFS;; UPFP1 = ADDR (UPF1); UPF1='';
+   DCL 1 PRS1 STATIC, %INCLUDE QCHPRSS;; PRSP1 = ADDR (PRS1); PRS1='';
+   DCL 1 CFO1 STATIC, %INCLUDE QCHCFOS;; CFOP1 = ADDR (CFO1); CFO1='';
+   DCL 1 UIH1 STATIC, %INCLUDE QCHUIHS;; UIHP1 = ADDR (UIH1); UIH1='';
+   DCL 1 HLA1 STATIC, %INCLUDE QCHHLAS;; HLAP1 = ADDR (HLA1); HLA1='';
+   DCL 1 HLC1 STATIC, %INCLUDE QCHHLCS;; HLCP1 = ADDR (HLC1); HLC1='';
+   DCL 1 DCA1 STATIC, %INCLUDE QCHDCAS;; DCAP1 = ADDR (DCA1); DCA1='';
+   DCL 1 DCF1 STATIC, %INCLUDE QCHDCFS;; DCFP1 = ADDR (DCF1); DCF1='';
+   DCL 1 DFG1 STATIC, %INCLUDE QCHDFGS;; DFGP1 = ADDR (DFG1); DFG1='';
+   DCL 1 DIA1 STATIC, %INCLUDE QCHDIAS;; DIAP1 = ADDR (DIA1); DIA1='';
+   DCL 1 DPE1 STATIC, %INCLUDE QCHDPES;; DPEP1 = ADDR (DPE1); DPE1='';
+   DCL 1 DPO1 STATIC, %INCLUDE QCHDPOS;; DPOP1 = ADDR (DPO1); DPO1='';
+   DCL 1 DSG1 STATIC, %INCLUDE QCHDSGS;; DSGP1 = ADDR (DSG1); DSG1='';
+   DCL 1 DTE1 STATIC, %INCLUDE QCHDTES;; DTEP1 = ADDR (DTE1); DTE1='';
+   DCL 1 DWW1 STATIC, %INCLUDE QCHDWWS;; DWWP1 = ADDR (DWW1); DWW1='';
+   DCL 1 DFP1 STATIC, %INCLUDE QCHDFPS;; DFPP1 = ADDR (DFP1); DFP1='';
+   DCL 1 PPP1 STATIC, %INCLUDE QCHPPPS;; PPPP1 = ADDR (PPP1); PPP1='';
+   DCL 1 DCE1 STATIC, %INCLUDE QCHDCES;; DCEP1 = ADDR (DCE1); DCE1='';
+
+   DCL 1 BAH1 STATIC, %INCLUDE QCHBAHS;; BAHP1 = ADDR (BAH1); BAH1='';
+   DCL 1 BCR1 STATIC, %INCLUDE QCHBCRS;; BCRP1 = ADDR (BCR1); BCR1='';
+   DCL 1 COC1 STATIC, %INCLUDE QCHCOCS;; COCP1 = ADDR (COC1); COC1='';
+   DCL 1 PCR1 STATIC, %INCLUDE QCHPCRS;; PCRP1 = ADDR (PCR1); PCR1='';
+   DCL 1 PRV1 STATIC, %INCLUDE QCHPRVS;; PRVP1 = ADDR (PRV1); PRV1='';
+   DCL 1 STM1 STATIC, %INCLUDE QCHSTMS;; STMP1 = ADDR (STM1); STM1='';
+
+   DCL 1 AMNT1 STATIC, %INCLUDE QCHOAMNT;;                     /* GWI */
+                      AMNTP1 = ADDR(AMNT1);                    /* GWI */
+                      AMNT1.PTRFIRST = NULL();                 /* GWI */
+
+   /* IR701008 */
+   DCL 1 MAD1 STATIC, %INCLUDE QCHMADS;; MADP1 = ADDR (MAD1); MAD1='';
+   /* IR701022 */
+   DCL 1 BMC1 STATIC, %INCLUDE QCHBMCS;; BMCP1 = ADDR (BMC1); BMC1='';
+   DCL 1 BMM1 STATIC, %INCLUDE QCHBMMS;; BMMP1 = ADDR (BMM1); BMM1='';
+   DCL 1 BPC1 STATIC, %INCLUDE QCHBPCS;; BPCP1 = ADDR (BPC1); BPC1='';
+   /* IR701037 WPI 2002-05-06 */
+   DCL 1 UDD1 STATIC, %INCLUDE QCHUDDS;; UDDP1 = ADDR (UDD1); UDD1='';
+
+   /* WORK STRUCTURES */
+   /* MSO 2001-01-10:
+   /* MOVED XX5 FROM QCHDSTM TO QCHDRTM BECAUSE QCHDSTM PROGRAM TOO */
+   /* LARGE.                                                        */
+   DCL 1 XX5  STATIC, %INCLUDE QCHXX5S;; XX5P1 = ADDR (XX5 );
+                                                      %INCLUDE QCHXX5I;
+   /* GHA 2001-02-18: */
+   /* PROGRAM TOO LARGE -> FOLLOWING STRUCTURES MOVE FROM DSTM      */
+   /* GHA BEGIN      */
+   DCL 1 CDT1 STATIC, %INCLUDE QCHCDTSM;;CDTP1 = ADDR (CDT1); CDT1='';
+   DCL 1 CMT1 STATIC, %INCLUDE QCHCMTS;; CMTP1 = ADDR (CMT1); CMT1='';
+   DCL 1 CRE1 STATIC, %INCLUDE QCHCRES;; CREP1 = ADDR (CRE1); CRE1='';
+   DCL 1 CUR1 STATIC, %INCLUDE QCHCURS;; CURP1 = ADDR (CUR1); CUR1='';
+   DCL 1 CCY1 STATIC, %INCLUDE QCHCCYS;; CCYP1 = ADDR (CCY1); CCY1='';
+   /* GHA END        */
+
+   /* DFE 2001-07-02: */
+   /* ADDED FOR PRINT IR701023 ATA */
+   DCL 1 PTX1 STATIC, %INCLUDE QCHIDTE;; PTXP1 = ADDR (PTX1); PTX1='';
+   /* DFE END         */
+
+   /* ADDED FOR PRINT 810 */
+   DCL 1 PXI1 STATIC, %INCLUDE QCHPXIS;; PXIP1 = ADDR (PXI1); PXI1='';
+
+   /*---------------------------------------------------------------*/
+   /* BIL - BILLING STRUCTURE                                       */
+   /*---------------------------------------------------------------*/
+   DCL 1 BIL  STATIC, %INCLUDE QCHBILS;; BILP1 = ADDR (BIL); BIL='';
+
+   /*+GST DYNAMIC DATA MANAGER AND DYNAMIC PRICING */
+   SPP.DDMSTACK = NULL;
+   DCL 1 DYNROOT1 STATIC, %INCLUDE QCHDYNRS;;
+   DYNROOT = ADDR (DYNROOT1);
+
+   DCL 1 CLCROOT1 STATIC, %INCLUDE QCHDCLRS;;
+   CLCROOT = ADDR (CLCROOT1);
+   CLCROOT1.IOPUCTY            = '';
+   CLCROOT1.IAGRCID            = '';
+   CLCROOT1.LDBSOSN            = '';
+   CLCROOT1.CCTSERNBR          = '';
+   CLCROOT1.ICUSUSE            = '';
+   CLCROOT1.IS_ACTIVE          = '0'B;
+   CLCROOT1.TY_ORDERHANDLING   = 'N';
+   CLCROOT1.YN_INSTALLED_MACHINE_EXISTS = '0'B;
+   CLCROOT1.YN_INITIAL_ORDER_EXISTS = '0'B;
+   CLCROOT1.ORDERSEXIST        = '0'B;
+   CLCROOT1.CONSIDERFEATURES   = '0'B;
+   CLCROOT1.CREATEACTIVELIO    = 'Y';
+   CLCROOT1.D_BIL_FROM         = '';
+   CLCROOT1.D_BIL_TO           = '';
+   CLCROOT1.D_SOC_EFF_PG1      = '';
+   CLCROOT1.D_SOC_EFF_PG2      = '';
+   CLCROOT1.FILLER             = '';
+
+   CLCROOT1.COLL_LIO           = NULL;
+   CLCROOT1.REF_OFF            = NULL;
+   CLCROOT1.OFF_NIK            = '';
+   CLCROOT1.REF_OBJ            = NULL;
+   CLCROOT1.OBJ_NIK            = '';
+   CLCROOT1.DUMP_BILINFO       = '0'B;
+   CLCROOT1.IN_ERROR           = '0'B;
+   CLCROOT1.INTERNAL_ERROR     = '0'B;
+   CLCROOT1.ERROR_NUMBER       = '';
+   CLCROOT1.ERROR_VARIABLE     = '';
+   CLCROOT1.ERROR_SEVERITY     = '';
+   CLCROOT1.ERROR_SEVERITY_DEF = '';
+   /* CLCROOT INITIALIZED */
+   DCL 1 CNV1 STATIC, %INCLUDE QCHCNVS;;
+   CNVP1 = ADDR (CNV1);
+   CNV1.REF_HWX_BASE          = NULL;
+   CNV1.D_WARREND_BOX         = '';
+   CNV1.REF_HWX_COMP          = NULL;
+   CNV1.COLL_HWX              = NULL;
+   CNV1.COLL_HWC_MMDL         = NULL;
+   CNV1.COLL_HWC_INSTALLED    = NULL;
+   CNV1.COLL_TSL              = NULL;
+   CNV1.COLL_HHI              = NULL;
+   CNV1.YN_READ_ALL_MES       = '0'B;
+   CNV1.YN_READ_CONNECTED_MES = '0'B;
+   CNV1.YN_INSTALL_MES        = '0'B;
+   CNV1.MAX_GK_INSTALLED      = '';
+   CNV1.TY_PAYMENT_MODE       = '';
+   CNV1.TY_PRICE_CODE         = '';
+   /* CNV INITIALIZED */
+
+   DCL 1 DBIL1 STATIC, %INCLUDE QCHDBILS;;
+   DBILP1            = ADDR (DBIL1);
+   DBIL1.D_EFF       = '0001-01-01';
+   DBIL1.D_EXP       = '9999-12-31';
+   DBIL1.IS_TOUCHED  = '0'B;
+   DBIL1.REF_SOX     = NULL;
+   DBIL1.REF_SOC     = NULL;
+   DBIL1.REF_PRCGRP  = NULL;
+
+   DBIL1.ARR_LIO(1).REF_LIO = NULL;
+   DBIL1.ARR_LIO(1).REF_FSC = NULL;
+   DBIL1.ARR_LIO(2).REF_LIO = NULL;
+   DBIL1.ARR_LIO(2).REF_FSC = NULL;
+   DBIL1.ARR_LIO(3).REF_LIO = NULL;
+   DBIL1.ARR_LIO(3).REF_FSC = NULL;
+   DBIL1.ARR_LIO(4).REF_LIO = NULL;
+   DBIL1.ARR_LIO(4).REF_FSC = NULL;
+   DBIL1.ARR_LIO(5).REF_LIO = NULL;
+   DBIL1.ARR_LIO(5).REF_FSC = NULL;
+
+   DCL 1 DELI1 STATIC, %INCLUDE QCHDELIS;;
+   DELIP1              = ADDR (DELI1);
+   DELI1.NIK1         ='';
+   DELI1.TY_REF_ELEM1 ='';
+   DELI1.REF_SOC_1    = NULL;
+   DELI1.REF_LIO_1    = NULL;
+   DELI1.NIK2         = '';
+   DELI1.TY_REF_ELEM2 = '';
+   DELI1.REF_LIO_2    = NULL;
+   DELI1.REF_FSC_2    = NULL;
+   DELI1.Q_FROM       = 0;
+   /*-GST*/
+
+   /*---------------------------------------------------------------*/
+   /* ROOT OF SERVICE LEVEL PRICING OBJECT MODEL
+   /*---------------------------------------------------------------*/
+   DCL 1 SLPROOT1 STATIC, %INCLUDE QCHRSLS ;;
+   CSLP1   = ADDR (SLPROOT1);
+   SLPROOT1.I_CTY              = '';
+   SLPROOT1.I_CID              = '';
+   SLPROOT1.LDBSOSN            = 0;
+   SLPROOT1.CCTSERNBR          = '';
+   SLPROOT1.OFF_NIK            = '';
+   SLPROOT1.CCT_OBJ_NIK        = '';
+   SLPROOT1.CCT_MSGINFO        = '';
+
+   SLPROOT1.COLL_HWX           = NULL;
+   SLPROOT1.COLL_HWC_MDL       = NULL;
+   SLPROOT1.COLL_HWC_FEA       = NULL;
+   SLPROOT1.COLL_PRC           = NULL;
+   SLPROOT1.COLL_CSL           = NULL;
+
+   SLPROOT1.TY_ORDERHANDLING   = '';
+
+   SLPROOT1.KEY_FOR_PRC.ID_SLV = 0;
+   SLPROOT1.KEY_FOR_PRC.TYPE   = '';
+   SLPROOT1.KEY_FOR_PRC.MDLFEA = '';
+   SLPROOT1.KEY_FOR_PRC.D_FR   = MIN_DB2_DAT();
+   SLPROOT1.KEY_FOR_PRC.D_TO   = MAX_DB2_DAT();
+   SLPROOT1.KEY_FOR_PRC.D_PRCREF = MIN_DB2_DAT();
+
+   SLPROOT1.KEY_FOR_PRC_PREV.ID_SLV = 0;
+   SLPROOT1.KEY_FOR_PRC_PREV.TYPE   = '';
+   SLPROOT1.KEY_FOR_PRC_PREV.MDLFEA = '';
+   SLPROOT1.KEY_FOR_PRC_PREV.D_FR   = MIN_DB2_DAT();
+   SLPROOT1.KEY_FOR_PRC_PREV.D_TO   = MAX_DB2_DAT();
+   SLPROOT1.KEY_FOR_PRC_PREV.D_PRCREF = MIN_DB2_DAT();
+   /* SLPROOT INITIALIZED */
+
+   /*---------------------------------------------------------------*/
+   /* SL_PRC STRUCTURE FOR SERVICE LEVEL PRICING
+   /*---------------------------------------------------------------*/
+   DCL 1 SL_PRC STATIC, %INCLUDE QCHSLPRC ;;
+   SL_PRCP1 = ADDR (SL_PRC);
+   SL_PRC.TY_PRCACC          = '';
+   SL_PRC.PRCCOD             = '';
+   SL_PRC.NM_PRC             = '';
+   SL_PRC.PRCACCKEY          = '';
+   SL_PRC.D_ANNORI           = MIN_DB2_DAT();
+   SL_PRC.D_EFFORI           = MIN_DB2_DAT();
+   SL_PRC.D_EXPORI           = MAX_DB2_DAT();
+   SL_PRC.D_EFF              = MIN_DB2_DAT();
+   SL_PRC.D_EXP              = MAX_DB2_DAT();
+   SL_PRC.D_EFFFNL           = MIN_DB2_DAT();
+   SL_PRC.D_EXPFNL           = MAX_DB2_DAT();
+   SL_PRC.PRICE              = 0;
+   SL_PRC.FCT_SL             = 0;
+   SL_PRC.PRICEFCT           = 0;
+   SL_PRC.YN_PRICE_PER_UNIT_SB = '';
+   SL_PRC.YN_SL_FCT_SB       = '';
+   SL_PRC.YN_PRICE_TAKEN     = 'N';
+   SL_PRC.ID_SRP             = 0;
+   SL_PRC.ID_YPC             = 0;
+   SL_PRC.ID_HLA             = 0;
+   SL_PRC.D_PRCREF           = MIN_DB2_DAT();
+
+   /*---------------------------------------------------------------*/
+   /* ROOT OF SPECIAL BID PRICING
+   /*---------------------------------------------------------------*/
+   DCL 1 SBROOT   STATIC,
+         5 COLL_SB_ACC  POINTER INIT(NULL),
+         5 COLL_CLA     POINTER INIT(NULL),
+         5 COLL_PPP     POINTER INIT(NULL);
+   BIDROOT = ADDR(SBROOT);
+
+   /*---------------------------------------------------------------*/
+   /* STRUCTURE DEFINITIONS FOR FOREIGN APPLICATIONS                */
+   /*---------------------------------------------------------------*/
+   /*--- PEW */
+   DCL 1 PEWINFO STATIC   %INCLUDE  QCHPEWRF;;
+         PEWINFOP = ADDR(PEWINFO);   PEWINFO='';
+
+   DCL 1 PEWKEY  STATIC   %INCLUDE  QCHPEWWS;;
+         PEWKEYP = ADDR(PEWKEY);   PEWKEY='';
+
+   DCL 1 PEWINSTR STATIC   %INCLUDE  QCHPEWS;;
+         PEWSTRP = ADDR(PEWINSTR);  PEWINSTR ='';
+
+   /*---------------------------------------------------------------*/
+   /* STRUCTURE DEFINITIONS FOR INDICATORVARIABLES                  */
+   /*---------------------------------------------------------------*/
+   DCL 1 IBIS1 STATIC  %INCLUDE QCHBISI;;
+         IBISP1 = ADDR (IBIS1); IBIS1='';
+   DCL 1 IOFF1 STATIC  %INCLUDE QCHOFFI;;
+         IOFFP1 = ADDR (IOFF1); IOFF1='';
+   DCL 1 ICLC1 STATIC  %INCLUDE QCHCLCI;;
+         ICLCP1 = ADDR (ICLC1); ICLC1='';
+   DCL 1 ICCT1 STATIC  %INCLUDE QCHCCTI;;
+         ICCTP1 = ADDR (ICCT1); ICCT1='';
+   DCL 1 IELI1 STATIC  %INCLUDE QCHELII;;
+         IELIP1 = ADDR (IELI1); IELI1='';
+   DCL 1 IBHS1 STATIC  %INCLUDE QCHBHSI;;
+         IBHSP1 = ADDR (IBHS1); IBHS1='';
+   DCL 1 ILIO1 STATIC  %INCLUDE QCHLIOI;;
+         ILIOP1 = ADDR (ILIO1); ILIO1='';
+   /* 1
+   DCL 1 IDPE1 STATIC  %INCLUDE QCHDPEI;;
+         IDPEP1 = ADDR (IDPE1); IDPE1='';
+
+   DCL 1 ISED1 STATIC  %INCLUDE QCHSEDI;;
+         ISEDP1 = ADDR (ISED1); ISED1='';
+   */
+   DCL 1 IRCL1 STATIC  %INCLUDE QCHRCLI;;
+         IRCLP1 = ADDR (IRCL1); IRCL1='';
+   /* 2
+   DCL 1 IDIA1 STATIC  %INCLUDE QCHDIAI;;
+         IDIAP1 = ADDR (IDIA1); IDIA1='';
+   */
+   DCL 1 IUID1 STATIC  %INCLUDE QCHUIDI;;
+         IUIDP1 = ADDR (IUID1); IUID1='';
+   DCL 1 IOTE1 STATIC  %INCLUDE QCHOTEI;;
+         IOTEP1 = ADDR (IOTE1); IOTE1='';
+   /* 3
+   DCL 1 IIPI1 STATIC  %INCLUDE QCHIPII;;
+         IIPIP1 = ADDR (IIPI1); IIPI1='';
+   */
+   DCL 1 ICLK1 STATIC  %INCLUDE QCHCLKI;;
+         ICLKP1 = ADDR (ICLK1); ICLK1='';
+   DCL 1 INMS1 STATIC  %INCLUDE QCHNMSI;;
+         INMSP1 = ADDR (INMS1); INMS1='';
+   DCL 1 IELM1 STATIC  %INCLUDE QCHELMI;;
+         IELMP1 = ADDR (IELM1); IELM1='';
+   DCL 1 IODG1 STATIC  %INCLUDE QCHODGI;;
+         IODGP1 = ADDR (IODG1); IODG1='';
+
+   DCL 1 OTE1 STATIC, %INCLUDE QCHOTES;; OTEP1 = ADDR (OTE1); OTE1='';
+   DCL 1 PPQ1 STATIC, %INCLUDE QCHPPQS;; PPQP1 = ADDR (PPQ1); PPQ1='';
+   DCL 1 OTP1 STATIC, %INCLUDE QCHOTPS;; OTPP1 = ADDR (OTP1); OTP1='';
+   DCL 1 OWW1 STATIC, %INCLUDE QCHOWWS;; OWWP1 = ADDR (OWW1); OWW1='';
+   DCL 1 IPI1 STATIC, %INCLUDE QCHIPIS;; IPIP1 = ADDR (IPI1); IPI1='';
+   DCL 1 OEX1 STATIC, %INCLUDE QCHOEXS;; OEXP1 = ADDR (OEX1); OEX1='';
+   DCL 1 DPU1 STATIC, %INCLUDE QCHDPUS;; DPUP1 = ADDR (DPU1); DPU1='';
+   DCL 1 CLK1 STATIC, %INCLUDE QCHCLKS;; CLKP1 = ADDR (CLK1); CLK1='';
+   DCL 1 NMS1 STATIC, %INCLUDE QCHNMSS;; NMSP1 = ADDR (NMS1); NMS1='';
+   DCL 1 ELM1 STATIC, %INCLUDE QCHELMS;; ELMP1 = ADDR (ELM1); ELM1='';
+   DCL 1 FLM1 STATIC, %INCLUDE QCHFLMS;; FLMP1 = ADDR (FLM1); FLM1='';
+   DCL 1 ODE1 STATIC, %INCLUDE QCHODES;; ODEP1 = ADDR (ODE1); ODE1='';
+   DCL 1 ODC1 STATIC, %INCLUDE QCHODCS;; ODCP1 = ADDR (ODC1); ODC1='';
+   DCL 1 ODG1 STATIC, %INCLUDE QCHODGS;; ODGP1 = ADDR (ODG1); ODG1='';
+   DCL 1 NLO1 STATIC, %INCLUDE QCHNLOS;; NLOP1 = ADDR (NLO1); NLO1='';
+   DCL 1 TOT1 STATIC, %INCLUDE QCHTOTS;; TOTP1 = ADDR (TOT1); TOT1='';
+   DCL 1 FMS1 STATIC, %INCLUDE QCHFMSS;; FMSP1 = ADDR (FMS1); FMS1='';
+   DCL 1 CM21 STATIC, %INCLUDE QCHCM2S;; CM2P1 = ADDR (CM21); CM21='';
+   DCL 1 CH21 STATIC, %INCLUDE QCHCH2S;; CH2P1 = ADDR (CH21); CH21='';
+   DCL 1 AG21 STATIC, %INCLUDE QCHAG2S;; AG2P1 = ADDR (AG21); AG21='';
+
+   DCL 1 CFG1 STATIC, %INCLUDE QCHCFGS;; CFGP1 = ADDR (CFG1); CFG1='';
+   DCL 1 ICFG1 STATIC  %INCLUDE QCHCFGI;;
+         ICFGP1 = ADDR (ICFG1); ICFG1='';
+   DCL 1 COE1 STATIC, %INCLUDE QCHCOES;; COEP1 = ADDR (COE1); COE1='';
+   DCL 1 CSD1 STATIC, %INCLUDE QCHCSDS;; CSDP1 = ADDR (CSD1); CSD1='';
+
+   DCL 1 UIG1 STATIC, %INCLUDE QCHUIGS;; UIGP1 = ADDR (UIG1); UIG1='';
+   DCL 1 CUG1 STATIC, %INCLUDE QCHCUGS;; CUGP1 = ADDR (CUG1); CUG1='';
+   DCL 1 UGR1 STATIC, %INCLUDE QCHUGRS;; UGRP1 = ADDR (UGR1); UGR1='';
+   DCL 1 SBI1 STATIC, %INCLUDE QCHSBIS;; SBIP1 = ADDR (SBI1); SBI1='';
+   DCL 1 EMA1 STATIC, %INCLUDE QCHEMAS;; EMAP1 = ADDR (EMA1); EMA1='';
+   DCL 1 UAG1 STATIC, %INCLUDE QCHUAGS;; UAGP1 = ADDR (UAG1); UAG1='';
+   DCL 1 WTH1 STATIC, %INCLUDE QCHWTHS;; WTHP1 = ADDR (WTH1); WTH1='';
+
+   /* TABLE STRUCTURE DECLARATIONS FOR CHIS 701 QF2 CHANGES  BEGIN */
+   DCL 1 BFC1 STATIC, %INCLUDE QCHBFCS;; BFCP1 = ADDR (BFC1); BFC1='';
+   DCL 1 WER1 STATIC, %INCLUDE QCHWERS;; WERP1 = ADDR (WER1); WER1='';
+   DCL 1 TSE1 STATIC, %INCLUDE QCHTSES;; TSEP1 = ADDR (TSE1); TSE1='';
+   DCL 1 TIS1 STATIC, %INCLUDE QCHTISS;; TISP1 = ADDR (TIS1); TIS1='';
+   DCL 1 TIA1 STATIC, %INCLUDE QCHTIAS;; TIAP1 = ADDR (TIA1); TIA1='';
+   DCL 1 IFD1 STATIC, %INCLUDE QCHIFDS;; IFDP1 = ADDR (IFD1); IFD1='';
+   DCL 1 DVE1 STATIC, %INCLUDE QCHDVES;; DVEP1 = ADDR (DVE1); DVE1='';
+   DCL 1 DVA1 STATIC, %INCLUDE QCHDVAS;; DVAP1 = ADDR (DVA1); DVA1='';
+   DCL 1 DCV1 STATIC, %INCLUDE QCHDCVS;; DCVP1 = ADDR (DCV1); DCV1='';
+   DCL 1 BUF1 STATIC, %INCLUDE QCHBUFS;; BUFP1 = ADDR (BUF1); BUF1='';
+   DCL 1 BMU1 STATIC, %INCLUDE QCHBMUS;; BMUP1 = ADDR (BMU1); BMU1='';
+   DCL 1 BAQ1 STATIC, %INCLUDE QCHBAQS;; BAQP1 = ADDR (BAQ1); BAQ1='';
+   DCL 1 CWM1 STATIC, %INCLUDE QCHCWMS;; CWMP1 = ADDR (CWM1); CWM1='';
+
+   /* 4
+   DCL 1 IBFC1 STATIC  %INCLUDE QCHBFCI;;
+         IBFCP1 = ADDR (IBFC1); IBFC1='';
+   DCL 1 IWER1 STATIC  %INCLUDE QCHWERI;;
+         IWERP1 = ADDR (IWER1); IWER1='';
+   DCL 1 ITSE1 STATIC  %INCLUDE QCHTSEI;;
+         ITSEP1 = ADDR (ITSE1); ITSE1='';
+   DCL 1 ITIS1 STATIC  %INCLUDE QCHTISI;;
+         ITISP1 = ADDR (ITIS1); ITIS1='';
+   DCL 1 ITIA1 STATIC  %INCLUDE QCHTIAI;;
+         ITIAP1 = ADDR (ITIA1); ITIA1='';
+   DCL 1 IIFD1 STATIC  %INCLUDE QCHIFDI;;
+         IIFDP1 = ADDR (IIFD1); IIFD1='';
+   DCL 1 IDVE1 STATIC  %INCLUDE QCHDVEI;;
+         IDVEP1 = ADDR (IDVE1); IDVE1='';
+   DCL 1 IDVA1 STATIC  %INCLUDE QCHDVAI;;
+         IDVAP1 = ADDR (IDVA1); IDVA1='';
+   DCL 1 IDCV1 STATIC  %INCLUDE QCHDCVI;;
+         IDCVP1 = ADDR (IDCV1); IDCV1='';
+   DCL 1 IDAU1 STATIC  %INCLUDE QCHDAUI;;
+         IDAUP1 = ADDR (IDAU1); IDAU1='';
+   DCL 1 IDAV1 STATIC  %INCLUDE QCHDAVI;;
+         IDAVP1 = ADDR (IDAV1); IDAV1='';
+   DCL 1 IDAL1 STATIC  %INCLUDE QCHDALI;;
+         IDALP1 = ADDR (IDAL1); IDAL1='';
+   DCL 1 IDAE1 STATIC  %INCLUDE QCHDAEI;;
+         IDAEP1 = ADDR (IDAE1); IDAE1='';
+   */
+   /* 5
+   DCL 1 IBUF1 STATIC  %INCLUDE QCHBUFI;;
+         IBUFP1 = ADDR (IBUF1); IBUF1='';
+   DCL 1 IBMU1 STATIC  %INCLUDE QCHBMUI;;
+         IBMUP1 = ADDR (IBMU1); IBMU1='';
+   */
+   /* TABLE STRUCTURE DECLARATIONS FOR CHIS 701 QF2 CHANGES  END     */
+
+   DCL 1 ISBI1 STATIC  %INCLUDE QCHSBII;;
+         ISBIP1 = ADDR (ISBI1); ISBI1='';
+
+   DCL 1 ICSD1 STATIC  %INCLUDE QCHCSDI;;
+         ICSDP1 = ADDR (ICSD1); ICSD1='';
+   DCL 1 IMAD1 STATIC  %INCLUDE QCHMADI;; /* IR DB2MIG07 */
+         IMADP1 = ADDR (IMAD1); IMAD1='';
+   DCL 1 IGRP1 STATIC  %INCLUDE QCHGRPI;; /* IR DB2MIG07 */
+         IGRPP1 = ADDR (IGRP1); IGRP1='';
+   DCL 1 CSB1 STATIC, %INCLUDE QCHCSBS;; CSBP1 = ADDR (CSB1); CSB1='';
+
+   DCL 1 XCC  STATIC, %INCLUDE QCHXCCS;; XCCP1 = ADDR (XCC );
+                                                      %INCLUDE QCHXCCI;
+   DCL 1 WED  STATIC, %INCLUDE QCHWEDS;; WEDP1 = ADDR (WED );
+                                                      %INCLUDE QCHWEDI;
+   DCL 1 LLO1 STATIC, %INCLUDE QCHLLOS;; LLOP1 = ADDR (LLO1); LLO1='';
+   DCL 1 HHX1 STATIC, %INCLUDE QCHHHXS;; HHXP1 = ADDR (HHX1); HHX1='';
+   DCL 1 HHI1 STATIC, %INCLUDE QCHHHIS;; HHIP1 = ADDR (HHI1); HHI1='';
+   /* INDICATOR STRUCTURE DECALRES FOR TABLES WHICH ARE DECALARED    */
+   /* IN QCHDSTM !                                                   */
+   DCL 1 IGIT1 STATIC  %INCLUDE QCHGITI;;
+         IGITP1 = ADDR (IGIT1); IGIT1='';
+   DCL 1 IBMF1 STATIC  %INCLUDE QCHBMFI;;
+         IBMFP1 = ADDR (IBMF1); IBMF1='';
+   DCL 1 IMOX1 STATIC  %INCLUDE QCHMOXI;;
+         IMOXP1 = ADDR (IMOX1); IMOX1='';
+   /* 6
+   DCL 1 ICOT1 STATIC  %INCLUDE QCHCOTI;;
+         ICOTP1 = ADDR (ICOT1); ICOT1='';
+   */
+   DCL 1 IATT1 STATIC  %INCLUDE QCHATTI;;
+         IATTP1 = ADDR (IATT1); IATT1='';
+   DCL 1 IBMC1 STATIC  %INCLUDE QCHBMCI;;
+         IBMCP1 = ADDR (IBMC1); IBMC1='';
+   DCL 1 IIFS1 STATIC  %INCLUDE QCHIFSI;;
+         IIFSP1 = ADDR (IIFS1); IIFS1='';
+   DCL 1 IWTH1 STATIC  %INCLUDE QCHWTHI;;
+         IWTHP1 = ADDR (IWTH1); IWTH1='';
+
+   /*---------------------------------------------------------------*/
+   /* STRUCTURE DEFINITIONS FOR CSDW TABLES                         */
+   /*---------------------------------------------------------------*/
+
+   DCL 1 SWE1 STATIC, %INCLUDE QCHSWES;; SWEP1 = ADDR (SWE1); SWE1='';
+   DCL 1 SWF1 STATIC, %INCLUDE QCHSWFS;; SWFP1 = ADDR (SWF1); SWF1='';
+   DCL 1 SWH1 STATIC, %INCLUDE QCHSWHS;; SWHP1 = ADDR (SWH1); SWH1='';
+
+   DCL 1 ISWE1 STATIC  %INCLUDE QCHSWEI;;
+         ISWEP1 = ADDR (ISWE1); ISWE1='';
+   DCL 1 ISWF1 STATIC  %INCLUDE QCHSWFI;;
+         ISWFP1 = ADDR (ISWF1); ISWF1='';
+   DCL 1 ISWH1 STATIC  %INCLUDE QCHSWHI;;
+         ISWHP1 = ADDR (ISWH1); ISWH1='';
+   DCL 1 ICCD1 STATIC  %INCLUDE QCHCCDI;;
+         ICCDP1 = ADDR (ICCD1); ICCD1='';
+   DCL 1 IUTS1 STATIC  %INCLUDE QCHUTSI;;
+         IUTSP1 = ADDR (IUTS1); IUTS1='';
+   DCL 1 IBIM1 STATIC  %INCLUDE QCHBIMI;;
+         IBIMP1 = ADDR (IBIM1); IBIM1='';
+   DCL 1 IBIH1 STATIC  %INCLUDE QCHBIHI;;
+         IBIHP1 = ADDR (IBIH1); IBIH1='';
+
+   DCL 1 IBOR1 STATIC  %INCLUDE QCHBORI;;
+         IBORP1 = ADDR (IBOR1); IBOR1='';
+   DCL 1 ICAR1 STATIC  %INCLUDE QCHCARI;;
+         ICARP1 = ADDR (ICAR1); ICAR1='';
+   DCL 1 IMSG1 STATIC  %INCLUDE QCHMSGI;;
+         IMSGP1 = ADDR (IMSG1); IMSG1='';
+
+   /*---------------------------------------------------------------*/
+   /* AP PACKAGE 2 NEW TABLE STRUCTURE ALLOCATIONS                  */
+   /*---------------------------------------------------------------*/
+   DCL 1 MSN1 STATIC, %INCLUDE QCHMSNS;; MSNP1 = ADDR (MSN1); MSN1='';
+   DCL 1 IMSN1 STATIC  %INCLUDE QCHMSNI;;
+         IMSNP1 = ADDR (IMSN1); IMSN1='';
+
+   DCL 1 MPT1 STATIC, %INCLUDE QCHMPTS;; MPTP1 = ADDR (MPT1); MPT1='';
+   DCL 1 MSG1 STATIC, %INCLUDE QCHMSGS;; MSGP1 = ADDR (MSG1); MSG1='';
+   DCL 1 MSP1 STATIC, %INCLUDE QCHMSPS;; MSPP1 = ADDR (MSP1); MSP1='';
+   DCL 1 MST1 STATIC, %INCLUDE QCHMSTS;; MSTP1 = ADDR (MST1); MST1='';
+   DCL 1 TXN1 STATIC, %INCLUDE QCHTXNS;; TXNP1 = ADDR (TXN1); TXN1='';
+   DCL 1 UTA1 STATIC, %INCLUDE QCHUTAS;; UTAP1 = ADDR (UTA1); UTA1='';
+
+   DCL 1 SEC1 STATIC, %INCLUDE QCHSECS;; SECP1 = ADDR (SEC1); SEC1='';
+   DCL 1 AIO1 STATIC, %INCLUDE QCHAIOS;; AIOP1 = ADDR (AIO1); AIO1='';
+
+   /*---------------------------------------------------------------*/
+   /* 805 REL : NEW TABLE STRUCTURE ALLOCATIONS                     */
+   /*---------------------------------------------------------------*/
+
+   DCL 1 BPV1 STATIC, %INCLUDE QCHBPVS;; BPVP1 = ADDR (BPV1); BPV1='';
+   DCL 1 CAG1 STATIC, %INCLUDE QCHCAGS;; CAGP1 = ADDR (CAG1); CAG1='';
+   DCL 1 XCT1 STATIC, %INCLUDE QCHXCTS;; XCTP1 = ADDR (XCT1); XCT1='';
+
+   /*---------------------------------------------------------------*/
+   /* 810 RELEASE                                                   */
+   /*---------------------------------------------------------------*/
+   /* NEW TABLE STRUCTURE ALLOCATIONS                               */
+
+   DCL 1 ALC1 STATIC, %INCLUDE QCHALCS;; ALCP1 = ADDR (ALC1); ALC1='';
+   DCL 1 ALV1 STATIC, %INCLUDE QCHALVS;; ALVP1 = ADDR (ALV1); ALV1='';
+   DCL 1 ASB1 STATIC, %INCLUDE QCHASBS;; ASBP1 = ADDR (ASB1); ASB1='';
+   DCL 1 BLL1 STATIC, %INCLUDE QCHBLLS;; BLLP1 = ADDR (BLL1); BLL1='';
+   DCL 1 CAT1 STATIC, %INCLUDE QCHCATS;; CATP1 = ADDR (CAT1); CAT1='';
+   DCL 1 CBD1 STATIC, %INCLUDE QCHCBDS;; CBDP1 = ADDR (CBD1); CBD1='';
+   DCL 1 ESF1 STATIC, %INCLUDE QCHESFS;; ESFP1 = ADDR (ESF1); ESF1='';
+   DCL 1 ESO1 STATIC, %INCLUDE QCHESOS;; ESOP1 = ADDR (ESO1); ESO1='';
+   DCL 1 SCD1 STATIC, %INCLUDE QCHSCDS;; SCDP1 = ADDR (SCD1); SCD1='';
+   DCL 1 SLF1 STATIC, %INCLUDE QCHSLFS;; SLFP1 = ADDR (SLF1); SLF1='';
+   DCL 1 SRP1 STATIC, %INCLUDE QCHSRPS;; SRPP1 = ADDR (SRP1); SRP1='';
+   DCL 1 SLV1 STATIC, %INCLUDE QCHSLVS;; SLVP1 = ADDR (SLV1); SLV1='';
+   DCL 1 YCR1 STATIC, %INCLUDE QCHYCRS;; YCRP1 = ADDR (YCR1); YCR1='';
+   DCL 1 YPC1 STATIC, %INCLUDE QCHYPCS;; YPCP1 = ADDR (YPC1); YPC1='';
+   DCL 1 YSC1 STATIC, %INCLUDE QCHYSCS;; YSCP1 = ADDR (YSC1); YSC1='';
+   DCL 1 YTS1 STATIC, %INCLUDE QCHYTSS;; YTSP1 = ADDR (YTS1); YTS1='';
+
+   /* INDICATOR STRUCTURE DECALRES                                  */
+
+   DCL 1 IALV1 STATIC  %INCLUDE QCHALVI;;
+         IALVP1 = ADDR (IALV1); IALV1='';
+   DCL 1 IASB1 STATIC  %INCLUDE QCHASBI;;
+         IASBP1 = ADDR (IASB1); IASB1='';
+   DCL 1 IBLL1 STATIC  %INCLUDE QCHBLLI;;
+         IBLLP1 = ADDR (IBLL1); IBLL1='';
+   DCL 1 ICBD1 STATIC  %INCLUDE QCHCBDI;;
+         ICBDP1 = ADDR (ICBD1); ICBD1='';
+   DCL 1 ISCD1 STATIC  %INCLUDE QCHSCDI;;
+         ISCDP1 = ADDR (ISCD1); ISCD1='';
+ /*DCL 1 IESF1 STATIC  %INCLUDE QCHESFI;;
+         IESFP1 = ADDR (IESF1); IESF1='';
+   DCL 1 IESO1 STATIC  %INCLUDE QCHESOI;;
+         IESOP1 = ADDR (IESO1); IESO1='';
+   DCL 1 ISLF1 STATIC  %INCLUDE QCHSLFI;;
+         ISLFP1 = ADDR (ISLF1); ISLF1='';*/
+   DCL 1 ISLV1 STATIC  %INCLUDE QCHSLVI;;
+         ISLVP1 = ADDR (ISLV1); ISLV1='';
+   DCL 1 ISRP1 STATIC  %INCLUDE QCHSRPI;;
+         ISRPP1 = ADDR (ISRP1); ISRP1='';
+ /*DCL 1 IYPC1 STATIC  %INCLUDE QCHYPCI;;
+         IYPCP1 = ADDR (IYPC1); IYPC1='';*/
+   DCL 1 IYSC1 STATIC  %INCLUDE QCHYSCI;;
+         IYSCP1 = ADDR (IYSC1); IYSC1='';
+ /*DCL 1 IYTS1 STATIC  %INCLUDE QCHYTSI;;
+         IYTSP1 = ADDR (IYTS1); IYTS1='';*/
+
+   DCL 1 ICOC1 STATIC  %INCLUDE QCHCOCI;;
+         ICOCP1 = ADDR (ICOC1); ICOC1='';
+   DCL 1 ICTL1 STATIC  %INCLUDE QCHCTLI;;
+         ICTLP1 = ADDR (ICTL1); ICTL1='';
+   DCL 1 ICSB1 STATIC  %INCLUDE QCHCSBI;;
+         ICSBP1 = ADDR (ICSB1); ICSB1='';
+ /*DCL 1 IHLA1 STATIC  %INCLUDE QCHHLAI;;
+         IHLAP1 = ADDR (IHLA1); IHLA1='';
+   DCL 1 IHLC1 STATIC  %INCLUDE QCHHLCI;;
+         IHLCP1 = ADDR (IHLC1); IHLC1=''; */
+   DCL 1 IPHC1 STATIC  %INCLUDE QCHPHCI;;
+         IPHCP1 = ADDR (IPHC1); IPHC1='';
+   DCL 1 ITCO1 STATIC  %INCLUDE QCHTCOI;;
+         ITCOP1 = ADDR (ITCO1); ITCO1='';
+   DCL 1 IUPF1 STATIC  %INCLUDE QCHUPFI;;
+         IUPFP1 = ADDR (IUPF1); IUPF1='';
+   DCL 1 IUSC1 STATIC  %INCLUDE QCHUSCI;;
+         IUSCP1 = ADDR (IUSC1); IUSC1='';
+
+   /* CL09025A HIKARI 2009-10-28 ALIGNMENT */
+   DCL 1 CPD1 STATIC, %INCLUDE QCHCPDS;; CPDP1 = ADDR (CPD1); CPD1='';
+   DCL 1 ICPD1 STATIC  %INCLUDE QCHCPDI;;
+         ICPDP1 = ADDR (ICPD1); ICPD1='';
+
+   /*---------------------------------------------------------------*/
+   /* 8BH REL : NEW TABLE STRUCTURE ALLOCATIONS                     */
+   /*---------------------------------------------------------------*/
+   DCL 1 INT1 STATIC, %INCLUDE QCHINTS;; INTP1 = ADDR (INT1); INT1='';
+   DCL 1 INC1 STATIC, %INCLUDE QCHINCS;; INCP1 = ADDR (INC1); INC1='';
+   DCL 1 BLH1 STATIC, %INCLUDE QCHBLHS;; BLHP1 = ADDR (BLH1); BLH1='';
+   DCL 1 IBLH1 STATIC  %INCLUDE QCHBLHI;;
+         IBLHP1 = ADDR (IBLH1); IBLH1='';
+   DCL 1 IBLA1 STATIC  %INCLUDE QCHBLAI;;
+         IBLAP1 = ADDR (IBLA1); IBLA1='';
+   DCL 1 TXD1 STATIC, %INCLUDE QCHTXDS;; TXDP1 = ADDR (TXD1); TXD1='';
+
+   DCL 1 BMD1 STATIC, %INCLUDE QCHBMDS;; BMDP1 = ADDR (BMD1); BMD1='';
+   DCL 1 BMG1 STATIC, %INCLUDE QCHBMGS;; BMGP1 = ADDR (BMG1); BMG1='';
+   DCL 1 IBMG1 STATIC  %INCLUDE QCHBMGI;;
+         IBMGP1 = ADDR (IBMG1); IBMG1='';
+   DCL 1 BMW1 STATIC, %INCLUDE QCHBMWS;; BMWP1 = ADDR (BMW1); BMW1='';
+   DCL 1 BMZ1 STATIC, %INCLUDE QCHBMZS;; BMZP1 = ADDR (BMZ1); BMZ1='';
+   DCL 1 IBMZ1 STATIC  %INCLUDE QCHBMZI;;
+         IBMZP1 = ADDR (IBMZ1); IBMZ1='';
+   DCL 1 IFP1 STATIC, %INCLUDE QCHIFPS;; IFPP1 = ADDR (IFP1); IFP1='';
+   DCL 1 MPC1 STATIC, %INCLUDE QCHMPCS;; MPCP1 = ADDR (MPC1); MPC1='';
+   DCL 1 IMPC1 STATIC  %INCLUDE QCHMPCI;;
+         IMPCP1 = ADDR (IMPC1); IMPC1='';
+
+   DCL 1 ITRG1 STATIC  %INCLUDE QCHTRGI;;
+         ITRGP1 = ADDR (ITRG1); ITRG1='';
+   /*---------------------------------------------------------------*/
+   /*  COL NEW TABLE STRUCTURE ALLOCATIONS                          */
+   /*---------------------------------------------------------------*/
+
+   DCL 1 CDO1 STATIC, %INCLUDE QCHCDOS;; CDOP1 = ADDR (CDO1); CDO1='';
+   DCL 1 CDD1 STATIC, %INCLUDE QCHCDDS;; CDDP1 = ADDR (CDD1); CDD1='';
+   DCL 1 ICDD1 STATIC %INCLUDE QCHCDDI;;
+         ICDDP1 = ADDR (ICDD1); ICDD1='';
+
+   DCL 1 CLT1 STATIC, %INCLUDE QCHCLTS;; CLTP1 = ADDR (CLT1); CLT1='';
+   DCL 1 ICLT1 STATIC %INCLUDE QCHCLTI;;
+         ICLTP1 = ADDR (ICLT1); ICLT1='';
+
+   DCL 1 ICU1 STATIC, %INCLUDE QCHICUS;; ICUP1 = ADDR (ICU1); ICU1='';
+   DCL 1 CLI1 STATIC, %INCLUDE QCHCLIS;; CLIP1 = ADDR (CLI1); CLI1='';
+   DCL 1 CLD1 STATIC, %INCLUDE QCHCLDS;; CLDP1 = ADDR (CLD1); CLD1='';
+   DCL 1 ICL1 STATIC, %INCLUDE QCHICLS;; ICLP1 = ADDR (ICL1); ICL1='';
+   DCL 1 CLM1 STATIC, %INCLUDE QCHCLMS;; CLMP1 = ADDR (CLM1); CLM1='';
+   DCL 1 DPC1 STATIC, %INCLUDE QCHDPCS;; DPCP1 = ADDR (DPC1); DPC1='';
+   DCL 1 CLS1 STATIC, %INCLUDE QCHCLSS;; CLSP1 = ADDR (CLS1); CLS1='';
+   DCL 1 ICLS1 STATIC %INCLUDE QCHCLSI;;
+         ICLSP1 = ADDR (ICLS1); ICLS1='';
+
+   DCL 1 TRP1 STATIC, %INCLUDE QCHTRPS;; TRPP1 = ADDR (TRP1); TRP1='';
+
+   /*---------------------------------------------------------------*/
+   /* 8BH REL : SQL HELP STRUCTURE ALLOCATION                       */
+   /*---------------------------------------------------------------*/
+
+   DCL 1 SQLS STATIC, %INCLUDE QCHSQLS;;
+   SQLSP1 = ADDR (SQLS); SQLS='';
+
+   /*---------------------------------------------------------------*/
+   /* 8BH REL:STRUCTURE FOR POINTERS TO STRUCTURES NEED FOR ILE PROC*/
+   /*---------------------------------------------------------------*/
+   DCL 1 ILEWSP STATIC, %INCLUDE QCHILEPT;;
+   ILEWRKPTRS = ADDR (ILEWSP);
+   ILEWSP=NULL;
+
+   /*---------------------------------------------------------------*/
+   /* 8BH REL:JP ENABLEMENT STRUCTURE ALLOCATIONS                   */
+   /*---------------------------------------------------------------*/
+   DCL 1 BNC1 STATIC, %INCLUDE QCHBNCS;; BNCP1 = ADDR (BNC1); BNC1='';
+   DCL 1 BNF1 STATIC, %INCLUDE QCHBNFS;; BNFP1 = ADDR (BNF1); BNF1='';
+   DCL 1 BNH1 STATIC, %INCLUDE QCHBNHS;; BNHP1 = ADDR (BNH1); BNH1='';
+   DCL 1 CLE1 STATIC, %INCLUDE QCHCLES;; CLEP1 = ADDR (CLE1); CLE1='';
+
+   DCL 1 IUIH1 STATIC  %INCLUDE QCHUIHI;;
+         IUIHP1 = ADDR (IUIH1); IUIH1='';
+
+   /*---------------------------------------------------------------*/
+   /* 8BH REL:MISCELLANEOUS STRUCTURE ALLOCATIONS                   */
+   /*---------------------------------------------------------------*/
+   DCL 1 EOS  STATIC, %INCLUDE QCHEOS1;; EOSP1 = ADDR (EOS); EOS='';
+
+   /*---------------------------------------------------------------*/
+   /* 8BH REL:HWMA REF                                              */
+   /*---------------------------------------------------------------*/
+   DCL 1 BMX1 STATIC, %INCLUDE QCHBMXS;; BMXP1 = ADDR (BMX1); BMX1='';
+   DCL 1 ESB1 STATIC, %INCLUDE QCHESBS;; ESBP1 = ADDR (ESB1); ESB1='';
+
+   DCL 1 IPKG1 STATIC  %INCLUDE QCHPKGI;;
+         IPKGP1 = ADDR (IPKG1); IPKG1='';
+
+   DCL 1 CLA1 STATIC, %INCLUDE QCHCLAS;; CLAP1 = ADDR (CLA1); CLA1='';
+
+   DCL 1 ICLA1 STATIC  %INCLUDE QCHCLAI;;
+         ICLAP1 = ADDR (ICLA1); ICLA1='';
+
+   DCL 1 CCL1 STATIC, %INCLUDE QCHCCLS;; CCLP1 = ADDR (CCL1); CCL1='';
+
+   DCL 1 CBI1 STATIC, %INCLUDE QCHCBIS;; CBIP1 = ADDR (CBI1); CBI1='';
+
+   /* DYNAMIC ATTRIBUTE TABLES. VARIABLE INPUT STRUCTURE            */
+   DCL 1 CXT1 STATIC %INCLUDE DYNCXTS;;  P_DYNCXT=ADDR(CXT1); CXT1='';
+   DCL 1 OXT1 STATIC %INCLUDE DYNOXTS;;  P_DYNOXT=ADDR(OXT1); OXT1='';
+   DCL 1 OXE1 STATIC %INCLUDE DYNOXES;;  P_DYNOXE=ADDR(OXE1); OXE1='';
+   DCL 1 FXS1 STATIC %INCLUDE DYNFXSS;;  P_DYNFXS=ADDR(FXS1); FXS1='';
+   DCL 1 TXO1 STATIC %INCLUDE DYNTXOS;;  P_DYNTXO=ADDR(TXO1); TXO1='';
+
+   /* USER PARAMETERS STRUCTURE                                     */
+   DCL 1 USPARM STATIC, %INCLUDE QCHUSPRM;;
+   PUSPARM = ADDR (USPARM); USPARM='';
+
+   /*---------------------------------------------------------------*/
+   /* 8BH REL:BPDM LINK                                             */
+   /*---------------------------------------------------------------*/
+   DCL 1 SWS1 STATIC, %INCLUDE QCHSWSS;; SWSP1 = ADDR (SWS1); SWS1='';
+
+   /*---------------------------------------------------------------*/
+   /* 820 REL:DELEGATED DISCOUNT                                    */
+   /*---------------------------------------------------------------*/
+   DCL 1 SDD1 STATIC, %INCLUDE QCHSDDS;; SDDP1 = ADDR (SDD1); SDD1='';
+   DCL 1 SDE1 STATIC, %INCLUDE QCHSDES;; SDEP1 = ADDR (SDE1); SDE1='';
+
+- END QCHDRTM ;

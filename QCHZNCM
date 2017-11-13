@@ -1,0 +1,422 @@
+ /*********************************************************************/
+ /* MODULE NAME  : QCHZNCM                                            */
+ /* APPLICATION  : CHIS                (C) COPYRIGHT IBM CORP. 1991   */
+ /*-------------------------------------------------------------------*/
+ /* FUNCTION     : Receives input in Unicode for testing of various   */
+ /*                Unicode translation functions.                     */
+ /*                *** Temporary ***                                  */
+ /*              : (used by ACCENT)                                   */
+ /* AUTHOR       : David Feiner                                       */
+ /* DATE         : 30-04-1999                                         */
+ /* HISTORY      :                                                    */
+ /*********************************************************************/
+ /* Parameters :-                                                     */
+ /*  1. PTR to FB block                                               */
+ /*  2. PTR to input buffer                                           */
+ /*  3. FIXED BIN(31,0) - Input string length (bytes)                 */
+ /*  4. PTR to output NLS buffer                                      */
+ /*  5. FIXED BIN(31,0) - Output string length (bytes)                */
+ /*  6. FIXED BIN(31,0) - Return code from this module                */
+ /*  7. FIXED BIN(31,0) - Reason code from this module.               */
+ /*********************************************************************/
+ %INCLUDE QCH##PAD;
+
+ QCHZNCM:PROC(P_FB,Parm_Ptr,Parm_Len,NLSBuf_Ptr,NLSBuf_Len,
+              parm_cpt,parm_cps,
+              parm_cd,parm_NoClose,
+              Parm_RC,PARM_REASON) REORDER;
+
+ /*-------------------------------------------------------------------*/
+ /* Parameters                                                        */
+ /*-------------------------------------------------------------------*/
+ DCL P_FB                     PTR,
+     PARM_PTR                 PTR,
+     PARM_Len                 fixed bin(31),
+     NLSBUF_Ptr               PTR,
+     NLSBUF_Len               fixed bin(31),
+     parm_cps                 char(*),
+     parm_cpt                 char(*),
+     parm_cd                  fixed bin(31),
+     parm_NoClose             bit(1),
+     PARM_RC                  FIXED BIN(31,0),
+     PARM_REASON              FIXED BIN(31,0);
+
+ Dcl
+   1  DataMsg based(Parm_Ptr),      /* Input data msg                */
+      %include QCHZBUFF;;
+
+ DCL 1 FEEDBACK               BASED(P_FB),
+       %INCLUDE QCHZ007;
+
+ DCL QCHZARM                  ENTRY(PTR);
+
+ DCL 1 AREA_BLOK              BASED(FEEDBACK.AREA_PTR),
+       %INCLUDE QCHZ006;
+
+ Dcl XICONVO                  External
+                              Entry(fixed bin(31),
+                                    fixed bin(31),
+                                    ptr,
+                                    ptr,
+                                    fixed bin(31))
+                              returns(fixed bin(31));
+
+ Dcl XICONVC                  External
+                              Entry(fixed bin(31),
+                                    fixed bin(31),
+                                    fixed bin(31));
+
+ Dcl XICONV                   External
+                              Entry(fixed bin(31),
+                                    fixed bin(31),
+                                    ptr,
+                                    fixed bin(31),
+                                    ptr,
+                                    fixed bin(31),
+                                    fixed bin(31))
+                              returns(fixed bin(31));
+
+ /*-------------------------------------------------------------------*/
+ /* Structure of input parameter                                      */
+ /*-------------------------------------------------------------------*/
+ DCL W_STR                    CHAR(32767) BASED(addr(DataMsg.Data));
+
+ /*------------------------------------------------------------------*/
+ /* Local macros                                                     */
+ /*------------------------------------------------------------------*/
+
+ %include qchztrc1;;           /* API BMP/Parser runtime tracing     */
+
+ /*------------------------------------------------------------------*/
+ /* Local reason codes                                               */
+ /*------------------------------------------------------------------*/
+
+ %include qchzrcs;;            /* BMP common internal return codes   */
+
+ /*------------------------------------------------------------------*/
+ /* API return codes                                                 */
+ /*------------------------------------------------------------------*/
+
+ %include qchzarcs;;           /* API common return codes            */
+
+ DCL (NULL,
+      ADDR,
+      LOW,
+      SUBSTR,
+      MIN,
+      INDEX,
+      VERIFY,
+      STG,
+      CSTG,
+      FIXED,
+      BINARYVALUE,
+      UNSPEC,
+      REPEAT,
+      TRANSLATE,
+      ONLOC,
+      DATAFIELD,
+      ONCHAR,
+      ONCODE,
+      ONCOUNT,
+      ONSOURCE,
+      LENGTH)                 BUILTIN;
+
+ /*Dcl SYSPRINT file output;*/
+ DCL TraceLvl                 fixed bin(31) init(0);
+ Dcl TraceLoc                 char(30) varying;
+
+ dcl cd                       fixed bin(31) init(0); /* XICONVO hndl*/
+ dcl cd1                      fixed bin(31) init(0); /* Tmp handle  */
+ dcl rc                       fixed bin(31); /* Return code         */
+ dcl errno                    fixed bin(31) init(0); /* From XICONV */
+ dcl errcnt                   fixed bin(31) init(0); /* Error count */
+ dcl InPtr                    ptr init(null); /* XICONV input buffer*/
+ dcl OutPtr                   ptr init(null); /* XICONV output buf  */
+ dcl inbuf                    char(32767) based; /* Template        */
+ dcl InLeft                   fixed bin(31) init(0); /* In remaining*/
+ dcl OutLeft                  fixed bin(31) init(0); /* Out remaing */
+ dcl nullc                    char; /* Binary null                  */
+ dcl cpt                      char(10); /* Target codepage          */
+ dcl cps                      char(10); /* Source codepage          */
+ dcl target_ccsid             ptr; /* Ptr to target codepage        */
+ dcl source_ccsid             ptr; /* Ptr to source codepage        */
+
+ TraceLvl = FeedBack.TraceLvl;
+
+ PARM_RC,
+ PARM_REASON = 0;
+ errcnt = 0;
+ rc = 0;
+ cd = 0;
+
+ unspec(nullc) = '00000000'b; /* Null char for C-terminated strings */
+ TraceLoc = 'Init';
+
+ /*-------------------------------------------------------------------*/
+ /* Generate null-terminated source, target codepage strings.         */
+ /*-------------------------------------------------------------------*/
+
+ cps = substr(parm_cps,1,index(parm_cps,' ')-1) !! nullc;
+ cpt = substr(parm_cpt,1,index(parm_cpt,' ')-1) !! nullc;
+
+ putskipa(9,('zncm: tracelvl = ',tracelvl));
+
+ /***************** For testing only */
+
+ cps = translate(cps,'-','_');
+ cpt = translate(cpt,'-','_');
+
+ /******************/
+
+ /*-------------------------------------------------------------------*/
+ /* If an (unexpected) PLI error is detected, set the return/reason   */
+ /* code & exit the program.                                          */
+ /*-------------------------------------------------------------------*/
+
+ on error begin;
+     on error system;
+     putskipa(0,('QCHZNCM: ON Error occurred during processing'));
+     putskipa(0,('Datafield=',datafield()));
+     putskipa(0,('Onchar   =',onchar()));
+     putskipa(0,('Oncode   =',oncode()));
+     putskipa(0,('Oncount  =',oncount()));
+     putskipa(0,('Onloc    =',onloc()));
+     putskipa(0,('Onsource =',onsource()));
+     putskipa(0,('TraceLoc =',TraceLoc));
+     putskipa(0,('Parm_cd  =',Parm_cd));
+     putskipa(0,('cd       =',cd));
+     putskipa(0,('cd1      =',cd1));
+     putskipa(0,('errno    =',errno));
+     putskipa(0,('cps      =',cps));
+     putskipa(0,('cpt      =',cpt));
+
+     PARM_RC = APIRC_SEVERE_ERROR;
+     PARM_REASON = RC_SEVERE_ERROR;
+     errcnt = errcnt + 1;
+     goto PGM_END;
+ end;
+
+ /* putskipa(10,('QCHZNCM: Before converting:'));              */
+ /* putskipa(10,('p_fb = ',binaryvalue(p_fb)));                */
+ /* putskipa(10,('fb.eyecatcher:      ',feedback.eyecatcher)); */
+ /* putskipa(10,('fb.version:         ',feedback.version));    */
+ /* putskipa(10,('fb.tracelvl:        ',feedback.tracelvl));   */
+ /* putskipa(10,('tracelvl=',tracelvl));                       */
+
+ /*-------------------------------------------------------------------*/
+ /* Trace input message                                               */
+ /*-------------------------------------------------------------------*/
+
+ putskipa(9,('VL trace: % via cnv2hex:',cnv2hex('%%%')));
+ /*
+ putskipa(9,('parm_len=',parm_len));
+ putskipa(9,('parm_ptr=',binaryvalue(parm_ptr)));
+ */
+ /*
+ putskipa(7,('Input data to QCHZNCM (first 2000 bytes):'));
+ putskipa(7,('<',substr(w_str,1,min(2000,Parm_Len)),'>'));
+ */
+ /*-------------------------------------------------------------------*/
+ /* Set input buffer ptr to normal datamsg,                           */
+ /*     input buffer length to datamsg length,                        */
+ /*     output buffer ptr to NLS datamsg,                             */
+ /*     output buffer length to NLS datamsg length,                   */
+ /*     target ccsid from input,                                      */
+ /*     source ccsid from input.                                      */
+ /*-------------------------------------------------------------------*/
+
+ inptr = addr(DataMsg.Data);
+ inleft = parm_len;
+ outptr = addr(NLSBUF_Ptr->DataMsg.Data);
+ outleft = NLSBUF_Len;
+ target_ccsid = addr(cpt);
+ source_ccsid = addr(cps);
+
+ /*-------------------------------------------------------------------*/
+ /* Call C program XICONVO to create a handle for use of the specified*/
+ /* target and source ccsids.                                         */
+ /*-------------------------------------------------------------------*/
+
+ TraceLoc = 'XICONVO';
+ putskipa(7,('Calling XICONVO'));
+ putskipa(7);
+
+ /*-------------------------------------------------------------------*/
+ /* If the given cd is zero (meaning there is no open converter), then*/
+ /* attempt to open a new converter.                                  */
+ /*-------------------------------------------------------------------*/
+
+ if parm_cd = 0 then do;
+   rc = XICONVO(tracelvl,cd,target_ccsid,source_ccsid,errno);
+   putskipa(9,('Return from XICONVO:'));
+   putskipa(9,('  rc:          ',rc));
+   putskipa(9,('  cd:          ',cd));
+   putskipa(9,('  errno:       ',errno));
+ end;
+
+ /*-------------------------------------------------------------------*/
+ /* If the target and source ccsids are compatible, then call C       */
+ /* program XICONV to translate the source data using the source      */
+ /* ccsid into the target data area using the target ccsid.           */
+ /*-------------------------------------------------------------------*/
+
+ if rc = 0 then do;
+   putskipa(10,('Before XICONV:'));
+   putskipa(10,('  inleft:      ',inleft));
+   putskipa(10,('  outleft:     ',outleft));
+   putskipa(10,('  inbuf hex (1000): <',
+               cnv2hex(substr(addr(DataMsg.Data)->inbuf,
+                 1,min(inleft,1000))),'>'));
+   putskipa(10,('  inbuf     (1000): <',
+               substr(addr(DataMsg.Data)->inbuf,
+                 1,min(inleft,1000)),'>'));
+   putskipa(10);
+
+   TraceLoc = 'XICONV';
+   rc = XICONV(tracelvl,cd,inptr,inleft,outptr,outleft,errno);
+
+   putskipa(10,('Return from XICONV:'));
+   putskipa(10,('  rc:          ',rc));
+   putskipa(10,('  errno:       ',errno));
+   putskipa(10,('  inleft:      ',inleft));
+   putskipa(10,('  outleft:     ',outleft));
+   putskipa(10,('  outbuf hex (1000): <',
+               cnv2hex(substr(addr(NLSBuf_Ptr->DataMsg.Data)->inbuf,
+                 1,min(NLSBuf_Len-outleft,1000))),'>'));
+   putskipa(10,('  outbuf     (1000): <',
+               substr(addr(NLSBuf_Ptr->DataMsg.Data)->inbuf,
+                 1,min(NLSBuf_Len-outleft,1000)),'>'));
+
+ /*-------------------------------------------------------------------*/
+ /* If the conversion was successful, then set the current msg ptr    */
+ /* to the NLS msg ptr so that the translated data will be used.      */
+ /*-------------------------------------------------------------------*/
+
+   if rc = 0 then do;
+     Parm_Ptr = NLSBUF_Ptr;    /* Use converted chars buffer         */
+     Parm_Len = NLSBUF_Len - OutLeft; /* Calc # output chars         */
+   end;
+
+   else do;
+     putskipa(0,('ICONV error ',
+                  errno,
+                 ', target codepage = <',
+                 cpt,
+                 '>, source codepage = <',
+                 cps,
+                 '>'));
+     Parm_RC = APIRC_NLS_CONVERSION_ERR;
+     Parm_Reason = RC_SEVERE_ERROR;
+   end;
+ end;
+
+ else do;
+   putskipa(0,('ICONV_Open error ',
+                errno,
+               ', target codepage = <',
+               cpt,
+               '>, source codepage = <',
+               cps,
+               '>'));
+   Parm_RC = APIRC_NLS_CONVERSION_ERR;
+   Parm_Reason = RC_SEVERE_ERROR;
+ end;
+
+ /* putskipa(10,('QCHZNCM: Before returning:'));                 */
+ /* putskipa(10,('  parm_rc:     ',parm_rc));                    */
+ /* putskipa(10,('  parm_reason: ',parm_reason));                */
+ /* putskipa(10,('  p_fb = ',binaryvalue(p_fb)));                */
+ /* putskipa(10,('  fb.eyecatcher:      ',feedback.eyecatcher)); */
+ /* putskipa(10,('  fb.version:         ',feedback.version));    */
+ /* putskipa(10,('  fb.tracelvl:        ',feedback.tracelvl));   */
+ /* putskipa(10,('  tracelvl=',tracelvl));                       */
+
+
+ pgm_end:;
+
+ /*-------------------------------------------------------------------*/
+ /* If there was an open converter, then close it with the XICONVC    */
+ /* function.                                                         */
+ /*-------------------------------------------------------------------*/
+
+ if cd ^= 0 then do;
+
+   /*-----------------------------------------------------------------*/
+   /* If NoClose is not specified, then close the converter.          */
+   /*-----------------------------------------------------------------*/
+
+   if ^parm_NoClose then do;
+
+     parm_cd = 0;
+
+   /*-----------------------------------------------------------------*/
+   /* For error processing, to prevent this code from being invoked   */
+   /* again if there is an xiconvc close error.                       */
+   /*-----------------------------------------------------------------*/
+
+     cd1 = cd;
+     cd = 0;
+
+     TraceLoc = 'XICONVC';
+     putskipa(7,('Calling xiconvc with cd = ',cd1));
+
+     call xiconvc(tracelvl,cd1,errno);
+
+     if errno ^= 0 then do;
+       putskipa(0,('Errno from XICONVC = ',errno));
+     end;
+
+   end;
+
+   /*-----------------------------------------------------------------*/
+   /* NoClose is specified, so don't close the converter.  Instead,   */
+   /* return the open converter cd handle.                            */
+   /*-----------------------------------------------------------------*/
+
+   else
+     parm_cd = cd;
+ end;
+
+ return;
+
+ /*------------------------------------------------------------------*/
+ /* Cnv2Hex:                                                         */
+ /*                                                                  */
+ /* Converts the specified string to a hex string.                   */
+ /*                                                                  */
+ /* Parameters:                                                      */
+ /*   1. Char(*)         - String                                    */
+ /*                                                                  */
+ /* Returns:                                                         */
+ /*   1. Char(*) var     - Hex output string                         */
+ /*------------------------------------------------------------------*/
+
+ Cnv2Hex: Proc(str) returns(char(32767) var);
+   Dcl  str             char(*);
+
+   Dcl  i               fixed bin(31);
+   Dcl  n1              fixed bin(31);
+   Dcl  n2              fixed bin(31);
+   Dcl  hex             char(32767) var;
+   Dcl  hexchars(16)    char init('0','1','2','3','4','5','6','7',
+                                  '8','9','A','B','C','D','E','F');
+   hex = '';
+
+ loop:
+   do i = 1 to length(str);
+     if i > 1 then
+       hex = hex !! ' ';
+
+     if length(hex) > STG(hex) - 10 then do;
+       hex = hex !! '...';
+       leave loop;
+     end;
+
+     n1 = fixed(UNSPEC(substr(str,i,1)) & unspec('f0'x)) / 16;
+     n2 = UNSPEC(substr(str,i,1)) & unspec('0f'x);
+     hex = hex !! hexchars(n1+1) !! hexchars(n2+1);
+   end;
+
+   return (hex);
+ end Cnv2Hex;
+ end QCHZNCM;

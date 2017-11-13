@@ -1,0 +1,526 @@
+ /*********************************************************************/
+ /* MODULE NAME  : QCHDCTM                                            */
+ /* APPLICATION  : CHIS                                               */
+ /* FUNCTION     : READ REQUESTED CTL REC AND CHECK RC                */
+ /* AUTHOR       : M. IWANIEWICZ                                      */
+ /* DATE         : 10-09-91                                           */
+ /* HISTORY      : TYPE QHIST IN COMMAND LINE AND PRESS ENTER         */
+ /*********************************************************************/
+
+   %INCLUDE QCH##PAD;
+   %INCLUDE QCH##EPS;
+ QCHDCTM : PROC REORDER;
+   #MODIDENT(QCHDCTM);
+   DFT  RANGE(*) STATIC;
+***
+***
+   %INCLUDE QCHDEPS;
+   %INCLUDE QCHSHYSP;
+   %INCLUDE QTTSHYS;
+   %INCLUDE QCHSHYSX;
+   MACDCLS;
+   %INCLUDE QCHDRVS;;;;
+   %INCLUDE QCHSHYSS;
+   %INCLUDE QCHDB2S;
+   %INCLUDE QCH#STR;
+   %INCLUDE QCHCEPM;
+
+   DCL 1 SP         BASED($$USPAPTR),     %INCLUDE QCHSPAS;;
+   DCL 1 PP         BASED(SP.PTRP1 ),     %INCLUDE QCHPTRS;;
+   DCL 1 P2         BASED(PP.PTRP2 ),     %INCLUDE QCHPTR2;;
+
+   DCL 1 COC        BASED(PP.COCP1 ),     %INCLUDE QCHCOCS;;
+   DCL 1 ICOC       BASED(P2.ICOCP1)      %INCLUDE QCHCOCI;;
+   DCL 1 CM2        BASED(PP.CM2P1 ),     %INCLUDE QCHCM2S;;
+   DCL 1 CTL        BASED(SP.CTLP1 ),     %INCLUDE QCHCTLS;;
+   DCL 1 ICTL       BASED(P2.ICTLP1)      %INCLUDE QCHCTLI;;
+   DCL 1 CTY        BASED(SP.CTYP1 ),     %INCLUDE QCHCTYS;;
+
+   EXEC SQL INCLUDE SQLCA;
+   %        INCLUDE QCHCTL1S;
+   %        INCLUDE QCHCOC1S;
+   %        INCLUDE QCHCTY1S;
+
+   %INCLUDE QCHVERS;
+   QCHVERS(QCHDCTM);
+
+   DCL  1 XTSQLCA    STATIC EXTERNAL        LIKE SQLCA;
+
+   DCL  CHR_IOPUCTY  CHAR      (  3  )      INIT(' ');
+   DCL  ERRMSG       CHAR      ( 16  )      INIT(' ');
+   DCL  BIN_SQLCODE  BIN FIXED ( 15  )      INIT( 0 );
+   DCL  VAR_MSG_TXT  CHAR      ( 16  )      VAR;
+
+   DCL  MOD_IDENT    CHAR      ( 17  )      INIT('.. ..... ...DCTM ');
+   DCL  CollRC       bin fixed ( 31  )      INIT(0);
+   DCL  PicCollRc    pic'999'               INIT(0);
+   DCL  CollTrLvl    bin fixed ( 31  )      INIT(0);
+   DCL  CPGTrcKey    char      ( 20  )      INIT('QCHCIDM');
+   DCL  AMGTrcKey    char      ( 20  )      INIT('AREAMGMT');
+
+   DCL UNI_PARMFL1   CHAR(50) VAR;
+   EXEC SQL DECLARE :UNI_PARMFL1   VARIABLE CCSID 1208;
+
+   DCL VERIFY BUILTIN;
+
+   DCL SYSPRINT FILE PRINT;
+
+ /*-------------------------------------------------------------------*/
+ /*       APPLICATION BUSINESS LOGIC                                  */
+ /*-------------------------------------------------------------------*/
+
+   OPEN  FILE(SYSPRINT);
+   CHR_IOPUCTY = SUBSTR(SP.CTLK1, 1, 3);
+
+                                    /* Set default trace levels:      */
+   CollTrLvl    = 0;                /*     CPG trclvl                 */
+   SP.ArMDrvTrc = '0'b;             /*     Area Mgmt trclvl           */
+
+   call Get_TraceLevels;            /* Get trclvl from CTY setup      */
+
+   PUT SKIP LIST(PGM_VERS);
+   CLOSE FILE(SYSPRINT);
+
+   OPEN  FILE(SYSPRINT);
+
+   CALL READ_COC;                   /*  READ COMPUTING CENTER FOR     */
+                                     /* SCREEN PREFIX CHANGE          */
+   SELECT (SQLCA.SQLCODE);
+      WHEN (   0) DO;
+      END;
+      WHEN ( 100) DO;
+        PUT SKIP LIST('NO COMPUTING CENTER RECORD FOUND IN TABLE COC');
+        FLGFLD (*,SP.SYSPREF!!'863','M','COC');
+        SP.MAXRC = 16;
+        IMMRET;
+      END;
+      WHEN (-811) DO;
+        PUT SKIP LIST('MULTIPLE RECORDS FOUND IN TABLE COC');
+        FLGFLD (*,SP.SYSPREF!!'958','M','COC');
+        SP.MAXRC = 16;
+        IMMRET;
+      END;
+      OTHERWISE DO;
+         CALL SQLERROR;
+         SP.MAXRC = 16;
+         IMMRET;
+      END;
+   END;
+
+
+   OPEN FILE(SYSPRINT);
+   PUT SKIP EDIT(MOD_IDENT,'CTL QUERY EXECUTED    ',
+                 SP.CTLI1,SP.CTLC1,' ',SP.CTLK1) (A);
+   CLOSE FILE(SYSPRINT);
+
+ /*----------------------------------------------------------------*/
+         EXEC SQL
+         SELECT   %INCLUDE QCHCTLD1;
+
+         INTO     %INCLUDE QCHCTLF1;
+
+         FROM     $$DBADM QCHVCTL1
+
+         WHERE    IOPUCTY = :CHR_IOPUCTY
+         ;
+ /*----------------------------------------------------------------*/
+
+   OPEN FILE(SYSPRINT);
+   PUT SKIP EDIT ('RETURNCOD:',SQLCA.SQLCODE,
+                  'MESSAG:',SQLCA.SQLERRM)
+                 (A,COL(20),A,SKIP,
+                  A,COL(20),A);
+   CLOSE FILE (SYSPRINT);
+   SELECT (SQLCA.SQLCODE);
+   /*--------------------------------------------------------------*/
+      WHEN (   0) DO;
+   /*--------------------------------------------------------------*/
+         IF CTL.FHPCFYN = 'Y'
+         THEN CALL LOAD_COMPOSITES;
+
+         CALL QCHDCDM ($$USPAPTR) ;
+      END;
+   /*--------------------------------------------------------------*/
+      WHEN ( 100) DO;
+   /*--------------------------------------------------------------*/
+         FLGFLD (*,SP.SYSPREF!!'028','M',CHR_IOPUCTY);
+         SP.MAXRC = 16;
+         IMMRET;
+      END;
+   /*--------------------------------------------------------------*/
+      OTHERWISE DO;
+   /*--------------------------------------------------------------*/
+         CALL SQLERROR;
+         SP.MAXRC = 16;
+         IMMRET;
+      END;
+   END;
+
+   OPEN FILE(SYSPRINT);
+
+   SwitchCodePage(CollTrLvl,$$USPAPTR,'CTY',CHR_IOPUCTY) RC(CollRC);
+   if CollRc ^= 0 then do;
+
+      PicCollRC = CollRc;
+      PUT SKIP LIST('Switch CollectionId failed with Rc:'!!CollRc);
+      FLGFLD (*,SP.SYSPREF!!'000','M','? with CollId');
+
+      SELECT(PicCollRC);
+
+         WHEN(2) FLGFLD (*,SP.SYSPREF!!'000','M','already exists');
+
+         WHEN(4) FLGFLD (*,SP.SYSPREF!!'613','M',SQLCA.SQLCODE,'OPEN');
+
+         WHEN(6) FLGFLD (*,SP.SYSPREF!!'613','M',SQLCA.SQLCODE,'FETCH');
+
+         WHEN(12) DO;
+
+            FLGFLD (*,SP.SYSPREF!!'000','M','no CPG record');
+            FLGFLD (*,SP.SYSPREF!!'000','M','in CTY table');
+
+         END;
+
+         WHEN(16) DO;
+
+            FLGFLD (*,SP.SYSPREF!!'613','M',SQLCA.SQLCODE,
+                     'at Switch call');
+
+         END;
+
+         WHEN(17) DO;
+
+            FLGFLD (*,SP.SYSPREF!!'000','M','internal bug');
+            FLGFLD (*,SP.SYSPREF!!'000','M','call is wrong');
+
+         END;
+
+         WHEN(24) DO;
+
+            FLGFLD (*,SP.SYSPREF!!'000','M','no CPG/CTY in');
+            FLGFLD (*,SP.SYSPREF!!'000','M','CODEPAGE array');
+
+         END;
+
+         OTHERWISE DO;
+
+            FLGFLD (*,SP.SYSPREF!!'000','M','unknown CID RC');
+
+         END;
+
+      END;
+
+   end;
+
+   CTY = '';
+
+   call Init_special_chars;
+
+   UNI_PARMFL1 =
+   '2122232425262728292A2B2C2D2E2F3A3B3C3D3E3F405B5C5D5E5F607B7C7D7E'X;
+   EXEC SQL SET :CTY.PARMFL1 = :UNI_PARMFL1;
+
+   if sqlca.sqlcode = 0 then do;
+     call Assign_special_chars;
+   end;
+   else do;
+      put skip list('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+      put skip list('UniCode Special char assignment SQL  ');
+      put skip list('code not 0 !', sqlca.sqlcode);
+      put skip list('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+   end;
+
+   CLOSE FILE (SYSPRINT);
+
+   OPEN FILE(SYSPRINT);
+                                   /* Clear CTY to avoid invalid data */
+                                   /* in subsequent CFLs              */
+   CTY = '';
+
+ /*-------------------------------------------------------------------*/
+ /* PROCEDURE SQLERROR: HANDLES ODD SQLCODES                          */
+ /*-------------------------------------------------------------------*/
+ SQLERROR: PROCEDURE;
+
+   XTSQLCA     = SQLCA;
+   BIN_SQLCODE = SQLCA.SQLCODE;
+   VAR_MSG_TXT = BIN_SQLCODE!!','!!'DCT';
+
+   FLGFLD (*,SP.SYSPREF!!'030','M',VAR_MSG_TXT);
+   IF SQLCA.SQLERRM ^= '' THEN DO;
+      ERRMSG = SUBSTR(SQLCA.SQLERRM,10,16);
+      FLGFLD (*,SP.SYSPREF!!'031','I',ERRMSG);
+   END;
+
+   UOPEN FILE(SYSPRINT);
+   UPUT SKIP EDIT (MOD_IDENT,'INVALID SQL-CODE AT READ CTL') (A);
+   UPUT SKIP EDIT (XTSQLCA)(A);
+   UPUT SKIP EDIT (SP.RUN_MODE) (A);
+   UCLOSE FILE (SYSPRINT);
+
+   IF SP.RUN_MODE = 'D'
+   !  SP.RUN_MODE = 'G'
+   !  SP.RUN_MODE = 'B' THEN DO;
+      SIGNAL ERROR;
+   END;
+
+ END SQLERROR;
+
+ LOAD_COMPOSITES:PROC;
+ /*-------------------------------------------------------------------*/
+ /* LOAD ALL OF THE 'COMPOSITE' LOAD MODULES. THESE ARE LOAD MODULES  */
+ /* WHICH CONTAIN ONE OR MORE RULE MODULES. THE 'GLUE' HOLDING EACH OF*/
+ /* THEM TOGETHER IS A VECTOR TABLE CONTAINED IN THE ROOT MODULE FOR  */
+ /* EACH OF THE LOAD MODULES.                                         */
+ /* IT IS ASSUMED THAT EACH OF THE COMPOSITE MODULES HAVE NAMES       */
+ /* CONFORMING TO THE MASK 'QCHVV*P' - WHERE '*' IS A CHARACTER IN THE*/
+ /* RANGE 0-9 AND A-Z. THIS ALLOWS FOR A MAXIMUM OF 36 SUCH MODULES   */
+ /* (NOTE : THE MODULE NAMES IN THE FOLLOWING ARRAY MUST BE IN        */
+ /* SEQUENCE).                                                        */
+ /*-------------------------------------------------------------------*/
+ DCL 1 QCHSLMA_PARM   STATIC,
+       3 COUNT        FIXED BIN(15,0) INIT(36),
+       3 FILL(3)      FIXED BIN(15,0) INIT((3)0),
+       3 ARRAY(36),
+         5 NAMES      CHAR(5) INIT((36)(1)'QCHVV'),
+         5 SUFFIX1    CHAR(1) INIT('A','B','C','D','E','F','G','H','I',
+                                   'J','K','L','M','N','O','P','Q','R',
+                                   'S','T','U','V','W','X','Y','Z','0',
+                                   '1','2','3','4','5','6','7','8','9'),
+         5 SUFFIX2    CHAR(2) INIT((36)(1)'P '),
+         5 EV         VARIABLE ENTRY RETURNS(PTR);
+ DCL QCHDCGM          ENTRY(PTR,CHAR(1));
+ DCL I                FIXED BIN(15,0);
+ DCL FB(2)            FIXED BIN(31,0) BASED;
+ %INCLUDE QCHDEPSX;
+ IF X_STRUC.HP_LOADED = '1'
+ THEN RETURN;
+ X_STRUC.HP_LOADED = '1';
+ /*-------------------------------------------------------------------*/
+ /* LOAD ALL OF THE COMPOSITE MODULES                                 */
+ /*-------------------------------------------------------------------*/
+ CALL QCHDCGM(ADDR(QCHSLMA_PARM),'R');
+ /*-------------------------------------------------------------------*/
+ /* LOOP THROUGH THE ABOVE ARRAY TO DETERMINE WHICH OF THE MODULES    */
+ /* LOADED. FOR EACH MODULE LOADED, IT IS INVOKED - TO GET THE ADDRESS*/
+ /* OF THE CORRESPONDING VECTOR TABLE - THEN THE VECTOR TABLE IS      */
+ /* PASSED TO QCHDCGM TO SAVE THE CONTAINED MODULE NAMES AND THE      */
+ /* ASSOCIATED ENTRY POINT ADDRESSES                                  */
+ /*-------------------------------------------------------------------*/
+ DO I = 1 TO QCHSLMA_PARM.COUNT;
+   IF ADDR(QCHSLMA_PARM.EV(I))->FB(1) ^= 0
+   THEN CALL QCHDCGM(QCHSLMA_PARM.EV(I),'S');
+ END;
+ END LOAD_COMPOSITES;
+
+ /*-------------------------------------------------------------------*/
+ READ_COC: PROC;
+ /*-------------------------------------------------------------------*/
+   PUT SKIP LIST('COC QUERY EXECUTE     ');
+   EXEC SQL
+      SELECT   %INCLUDE QCHCOCD1;
+
+      INTO     %INCLUDE QCHCOCF1;
+
+      FROM     $$DBADM QCHVCOC1
+   ;
+ END READ_COC;
+
+ /*-------------------------------------------------------------------*/
+ open_CTY_cursor: Proc returns(bit);
+ /*-------------------------------------------------------------------*/
+
+   Dcl  true                   bit(1) init('1'B);
+   Dcl  false                  bit(1) init('0'B);
+
+   Exec Sql declare CURCTY cursor for
+   Select  %INCLUDE QCHCTYD1 ;
+   From    $$DBADM QCHVCTY1
+
+   Where   IOPUCTY  = :CHR_IOPUCTY
+   And     TABLENA  = 'TRC'
+   And     GENKEY2  = 'TRACELVL'
+
+   For Fetch Only with UR;
+
+   Exec Sql Open CURCTY;
+
+   if sqlca.sqlcode = 0 then
+     return(true);
+   else
+     return(false);
+
+ End open_CTY_cursor;
+
+ /*-------------------------------------------------------------------*/
+ Get_TraceLevels: PROC;
+ /*-------------------------------------------------------------------*/
+
+   if open_CTY_cursor() then do;
+
+     Exec Sql Fetch CURCTY
+     Into    %INCLUDE QCHCTYF1 ;;
+
+     do while (sqlca.sqlcode = 0);
+
+       Select (toupper(cty.genkey1));
+
+         When (CPGTrcKey) do;
+           CollTrLvl = chk_trlvl(cty.parmfl1,CPGTrcKey);
+         end;
+
+         When (AMGTrcKey) do;
+           SP.ArMDrvTrc = (chk_trlvl(cty.parmfl1,AMGTrcKey) > 0);
+         end;
+
+         Otherwise;
+       end;
+
+       Exec Sql Fetch CURCTY
+       Into    %INCLUDE QCHCTYF1 ;;
+
+     end;
+   end;
+
+ End Get_TraceLevels;
+
+ /*-------------------------------------------------------------------*/
+ chk_trlvl: Proc(trcparm,trcproc) returns(fixed bin(31));
+ /*-------------------------------------------------------------------*/
+   Dcl trcparm      char(*)  var;
+   Dcl trcproc      char(20) var;
+
+   Dcl trcval      fixed bin(31) ;
+   Dcl trclen      fixed bin(31) init(0);
+
+   Dcl chrtrlvl1   char(2)  init('00');
+   Dcl pictrlv1    pic'99' based(addr(chrtrlvl1));
+
+   trclen = length(trim(trcparm));
+
+   if trclen > 0 then do;
+
+     if verify(trim(trcparm),'0123456789') = 0 then do;
+
+       if trclen = 1  then
+         chrtrlvl1 = '0'!! trim(trcparm);
+       else
+         chrtrlvl1 = trim(trcparm);
+
+     end;
+     else
+       put skip list(chr_iopucty!!':'!!trim(trcproc)!!':'!!
+                    trim(trcparm)!!':trace not valid');
+   end;
+
+   trcval = pictrlv1;
+
+   if trcval > 0 then
+     put skip list(chr_iopucty!!':'!!
+                   trim(trcproc)!!' tracelevel:'!!trcval);
+
+   return(trcval);
+
+ end chk_trlvl;
+
+ /*-------------------------------------------------------------------*/
+ Assign_special_chars: PROC;
+ /*-------------------------------------------------------------------*/
+
+   cm2.ch_excla = substr(cty.parmfl1, 1,1);
+   cm2.ch_quota = substr(cty.parmfl1, 2,1);
+   cm2.ch_pound = substr(cty.parmfl1, 3,1);
+   cm2.ch_dolla = substr(cty.parmfl1, 4,1);
+   cm2.ch_perce = substr(cty.parmfl1, 5,1);
+   cm2.ch_amper = substr(cty.parmfl1, 6,1);
+   cm2.ch_apost = substr(cty.parmfl1, 7,1);
+   cm2.ch_lpare = substr(cty.parmfl1, 8,1);
+   cm2.ch_rpare = substr(cty.parmfl1, 9,1);
+   cm2.ch_aster = substr(cty.parmfl1,10,1);
+   cm2.ch_plus  = substr(cty.parmfl1,11,1);
+   cm2.ch_comma = substr(cty.parmfl1,12,1);
+   cm2.ch_hyphe = substr(cty.parmfl1,13,1);
+   cm2.ch_perio = substr(cty.parmfl1,14,1);
+   cm2.ch_slash = substr(cty.parmfl1,15,1);
+   cm2.ch_colon = substr(cty.parmfl1,16,1);
+   cm2.ch_scolo = substr(cty.parmfl1,17,1);
+   cm2.ch_less  = substr(cty.parmfl1,18,1);
+   cm2.ch_equal = substr(cty.parmfl1,19,1);
+   cm2.ch_great = substr(cty.parmfl1,20,1);
+   cm2.ch_quest = substr(cty.parmfl1,21,1);
+   cm2.ch_at    = substr(cty.parmfl1,22,1);
+   cm2.ch_lsqbr = substr(cty.parmfl1,23,1);
+   cm2.ch_bslas = substr(cty.parmfl1,24,1);
+   cm2.ch_rsqbr = substr(cty.parmfl1,25,1);
+   cm2.ch_caret = substr(cty.parmfl1,26,1);
+   cm2.ch_uscor = substr(cty.parmfl1,27,1);
+   cm2.ch_grave = substr(cty.parmfl1,28,1);
+   cm2.ch_lgull = substr(cty.parmfl1,29,1);
+   cm2.ch_not   = substr(cty.parmfl1,30,1);
+   cm2.ch_rgull = substr(cty.parmfl1,31,1);
+   cm2.ch_tilde = substr(cty.parmfl1,32,1);
+
+ END Assign_special_chars;
+
+ /*-------------------------------------------------------------------*/
+ Init_special_chars: PROC;
+ /*-------------------------------------------------------------------*/
+
+   cm2.ch_excla = '?';
+   cm2.ch_quota = '?';
+   cm2.ch_pound = '?';
+   cm2.ch_dolla = '?';
+   cm2.ch_perce = '?';
+   cm2.ch_amper = '?';
+   cm2.ch_apost = '?';
+   cm2.ch_lpare = '?';
+   cm2.ch_rpare = '?';
+   cm2.ch_aster = '?';
+   cm2.ch_plus  = '?';
+   cm2.ch_comma = '?';
+   cm2.ch_hyphe = '?';
+   cm2.ch_perio = '?';
+   cm2.ch_slash = '?';
+   cm2.ch_colon = '?';
+   cm2.ch_scolo = '?';
+   cm2.ch_less  = '?';
+   cm2.ch_equal = '?';
+   cm2.ch_great = '?';
+   cm2.ch_quest = '?';
+   cm2.ch_at    = '?';
+   cm2.ch_lsqbr = '?';
+   cm2.ch_bslas = '?';
+   cm2.ch_rsqbr = '?';
+   cm2.ch_caret = '?';
+   cm2.ch_uscor = '?';
+   cm2.ch_grave = '?';
+   cm2.ch_lgull = '?';
+   cm2.ch_not   = '?';
+   cm2.ch_rgull = '?';
+   cm2.ch_tilde = '?';
+
+ END Init_special_chars;
+
+ /*------------------------------------------------------------------*/
+ /* toUpper: Returns the uppercase of a var string.                  */
+ /* Parameters:-                                                     */
+ /*   1. Char var string to uppercase                                */
+ /* Returns:-                                                        */
+ /*   Char var string                                                */
+ /*------------------------------------------------------------------*/
+ toupper: Proc(str)
+          returns(char(255) var);
+ /*------------------------------------------------------------------*/
+   dcl str                char(*) var;
+   dcl ustr               char(length(str))     auto;
+   dcl ustrv              char(length(str)) var auto;
+
+ /*putskipa(11,('toupper: str=<',str,'>'));*/
+   ustr = str;
+   Unspec(ustr) = Unspec(ustr) ! repeat('01000000',length(ustr)-1);
+   ustrv = ustr;
+ /*putskipa(11,('toupper: ret str=<',ustrv,'>'));*/
+   return(ustrv);
+
+ end toupper;
+
+ END QCHDCTM;

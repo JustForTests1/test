@@ -1,0 +1,326 @@
+ /*********************************************************************/
+ /* MODULE NAME  : QCHDSTM                                            */
+ /* APPLICATION  : CHIS                (C) COPYRIGHT IBM CORP. 1991   */
+ /*-------------------------------------------------------------------*/
+ /* FUNCTION     : DO "ONCE PER ENTER" TABLE STRUCTURE ALLOC+INIT     */
+ /* >>>>>>>>     : CALLED FROM MSSM,SPAM ( AFTER EVERY ENTER )        */
+ /* >>>>>>>>     : CALLED RECURSIVELY VIA DDDM                        */
+ /* AUTHOR       : F. GROSSENBERGER                                   */
+ /* DATE         : 13-03-1987                                         */
+ /* HISTORY      : TYPE HIST IN COMMAND LINE AND PRESS ENTER          */
+ /* $P1=DBCSPRT,6.2,06/23/98,DFE: NEW NLS-TRANSLATED-TEXT-TABLE NLT   */
+ /*********************************************************************/
+   %INCLUDE QCH##PAD;
+   %INCLUDE QCH##EPS;
+ QCHDSTM : PROC ($$USPAPTR) REORDER;
+   #MODIDENT(QCHDSTM);
+   DFT  RANGE(*) STATIC;
+
+   %INCLUDE QCHDEPS;
+
+   DCL  $$USPAPTR POINTER;
+   DCL 1 SP BASED ($$USPAPTR), %INCLUDE QCHSPAS ; ;
+
+ /*-------------------------------------------------------------------*/
+ /****   DECLARATIONS OF PARAMETERS PASSED AND ASSOCIATED AREAS   ****/
+ /*-------------------------------------------------------------------*/
+
+   DCL  (SUBSTR,ADDR,NULL)  BUILTIN;
+
+ /*-------------------------------------------------------------------*/
+ /* PROGRAM LOGIC STARTS                                              */
+ /* PUT A TRACE TABLE ENTRY                                           */
+ /*-------------------------------------------------------------------*/
+
+   CALL QCHDTTM ('QCHDSTM ', SP.RUN_MODE);
+
+ /*-------------------------------------------------------------------*/
+ /* INIT UPSKFLAG TO PRINT ALSO MODULE IDENTIFIER.                    */
+ /*-------------------------------------------------------------------*/
+   SP.FNOIDPSK = '0'B;
+ /*-------------------------------------------------------------------*/
+
+ /*-------------------------------------------------------------------*/
+ /* CLEAR TABLE POINTERS AND ASSIGN THEM AGAIN                        */
+ /*-------------------------------------------------------------------*/
+   SP.TAB_STR_PTR = NULL;
+
+ /*-------------------------------------------------------------------*/
+ /* MANDATORY POINTERS FOR TABLES USED BY THE DRIVER                  */
+ /*-------------------------------------------------------------------*/
+   DCL 1 BAT1 STATIC, %INCLUDE QCHBATS;; BATP1 = ADDR (BAT1); BAT1='';
+   DCL 1 CFL1 STATIC, %INCLUDE QCHCFLS;; CFLP1 = ADDR (CFL1); CFL1='';
+   DCL 1 CTL1 STATIC, %INCLUDE QCHCTLS;; CTLP1 = ADDR (CTL1); CTL1='';
+   DCL 1 CTY1 STATIC, %INCLUDE QCHCTYS;; CTYP1 = ADDR (CTY1); CTY1='';
+   DCL 1 GIL1 STATIC, %INCLUDE QCHGILS;; GILP1 = ADDR (GIL1); GIL1='';
+   DCL 1 PRT1 STATIC, %INCLUDE QCHPRTS;; PRTP1 = ADDR (PRT1); PRT1='';
+   DCL 1 RUL1 STATIC, %INCLUDE QCHRULS;; RULP1 = ADDR (RUL1); RUL1='';
+   DCL 1 STA1 STATIC, %INCLUDE QCHSTAS;; STAP1 = ADDR (STA1); STA1='';
+   DCL 1 STR1 STATIC, %INCLUDE QCHSTRS;; STRP1 = ADDR (STR1); STR1='';
+   DCL 1 TAP1 STATIC, %INCLUDE QCHTAPS;; TAPP1 = ADDR (TAP1); TAP1='';
+   DCL 1 TBL1 STATIC, 5 FIL CHAR(1000);; TBLP1 = ADDR (TBL1); TBL1='';
+   DCL 1 UIB1 STATIC, %INCLUDE QCHUIBS;; UIBP1 = ADDR (UIB1); UIB1='';
+   DCL 1 UID1 STATIC, %INCLUDE QCHUIDS;; UIDP1 = ADDR (UID1); UID1='';
+   DCL 1 UIS1 STATIC, %INCLUDE QCHUISS;; UISP1 = ADDR (UIS1); UIS1='';
+ /*-------------------------------------------------------------------*/
+ /* BUSINESS TABLE POINTERS                                           */
+ /*-------------------------------------------------------------------*/
+   DCL 1 AID1 STATIC, %INCLUDE QCHAIDS;; AIDP1 = ADDR (AID1); AID1='';
+   DCL 1 AIP1 STATIC, %INCLUDE QCHAIPS;; AIPP1 = ADDR (AIP1); AIP1='';
+ /*DCL 1 AIT1 STATIC, %INCLUDE QCHAITS;;                        OBS810*/
+ /*                          AITP1 = ADDR (AIT1); AIT1='';      OBS810*/
+   DCL 1 ATT1 STATIC, %INCLUDE QCHATTS;; ATTP1 = ADDR (ATT1); ATT1='';
+   DCL 1 BIB1 STATIC, %INCLUDE QCHBIBS;; BIBP1 = ADDR (BIB1); BIB1='';
+   DCL 1 BIH1 STATIC, %INCLUDE QCHBIHS;; BIHP1 = ADDR (BIH1); BIH1='';
+   DCL 1 BIM1 STATIC, %INCLUDE QCHBIMS;; BIMP1 = ADDR (BIM1); BIM1='';
+   DCL 1 BIS1 STATIC, %INCLUDE QCHBISS;; BISP1 = ADDR (BIS1); BIS1='';
+   DCL 1 BLA1 STATIC, %INCLUDE QCHBLAS;; BLAP1 = ADDR (BLA1); BLA1='';
+   DCL 1 BLM1 STATIC, %INCLUDE QCHBLMS;; BLMP1 = ADDR (BLM1); BLM1='';
+   DCL 1 BME1 STATIC, %INCLUDE QCHBMES;; BMEP1 = ADDR (BME1); BME1='';
+   DCL 1 BMF1 STATIC, %INCLUDE QCHBMFS;; BMFP1 = ADDR (BMF1); BMF1='';
+   DCL 1 CAR1 STATIC, %INCLUDE QCHCARS;; CARP1 = ADDR (CAR1); CAR1='';
+   DCL 1 CBA1 STATIC, %INCLUDE QCHCBAS;; CBAP1 = ADDR (CBA1); CBA1='';
+   DCL 1 CCD1 STATIC, %INCLUDE QCHCCDS;; CCDP1 = ADDR (CCD1); CCD1='';
+   DCL 1 CCF1 STATIC, %INCLUDE QCHCCFS;; CCFP1 = ADDR (CCF1); CCF1='';
+   DCL 1 CCR1 STATIC, %INCLUDE QCHCCRS;; CCRP1 = ADDR (CCR1); CCR1='';
+   DCL 1 CCT1 STATIC, %INCLUDE QCHCCTS;; CCTP1 = ADDR (CCT1); CCT1='';
+   DCL 1 CDA1 STATIC, %INCLUDE QCHCDASM;;CDAP1 = ADDR (CDA1); CDA1='';
+   DCL 1 CEH1 STATIC, %INCLUDE QCHCEHS;; CEHP1 = ADDR (CEH1); CEH1='';
+   DCL 1 CEV1 STATIC, %INCLUDE QCHCEVS;; CEVP1 = ADDR (CEV1); CEV1='';
+   DCL 1 CLC1 STATIC, %INCLUDE QCHCLCS;; CLCP1 = ADDR (CLC1); CLC1='';
+   DCL 1 CMA1 STATIC, %INCLUDE QCHCMAS;; CMAP1 = ADDR (CMA1); CMA1='';
+   DCL 1 CMF1 STATIC, %INCLUDE QCHCMFS;; CMFP1 = ADDR (CMF1); CMF1='';
+   DCL 1 CML1 STATIC, %INCLUDE QCHCMLS;; CMLP1 = ADDR (CML1); CML1='';
+   DCL 1 COD1 STATIC, %INCLUDE QCHCODS;; CODP1 = ADDR (COD1); COD1='';
+   DCL 1 COF1 STATIC, %INCLUDE QCHCOFS;; COFP1 = ADDR (COF1); COF1='';
+   DCL 1 CON1 STATIC, %INCLUDE QCHCONS;; CONP1 = ADDR (CON1); CON1='';
+   DCL 1 CUB1 STATIC, %INCLUDE QCHCUBS;; CUBP1 = ADDR (CUB1); CUB1='';
+   DCL 1 CUC1 STATIC, %INCLUDE QCHCUCS;; CUCP1 = ADDR (CUC1); CUC1='';
+ /*DCL 1 FCH1 STATIC, %INCLUDE QCHFCHS;;                        OBS810*/
+ /*                          FCHP1 = ADDR (FCH1); FCH1='';      OBS810*/
+   DCL 1 IFS1 STATIC, %INCLUDE QCHIFSS;; IFSP1 = ADDR (IFS1); IFS1='';
+   DCL 1 LIO1 STATIC, %INCLUDE QCHLIOS;; LIOP1 = ADDR (LIO1); LIO1='';
+
+   DCL 1 MIC1 STATIC, %INCLUDE QCHMICS;; MICP1 = ADDR (MIC1); MIC1='';
+   DCL 1 MIM1 STATIC, %INCLUDE QCHMIMS;; MIMP1 = ADDR (MIM1); MIM1='';
+   DCL 1 MIX1 STATIC, %INCLUDE QCHMIXS;; MIXP1 = ADDR (MIX1); MIX1='';
+   DCL 1 MOC1 STATIC, %INCLUDE QCHMOCS;; MOCP1 = ADDR (MOC1); MOC1='';
+   DCL 1 MOX1 STATIC, %INCLUDE QCHMOXS;; MOXP1 = ADDR (MOX1); MOX1='';
+   DCL 1 NOC1 STATIC, %INCLUDE QCHNOCS;; NOCP1 = ADDR (NOC1); NOC1='';
+   DCL 1 NOT1 STATIC, %INCLUDE QCHNOTS;; NOTP1 = ADDR (NOT1); NOT1='';
+   DCL 1 RCL1 STATIC, %INCLUDE QCHRCLS;; RCLP1 = ADDR (RCL1); RCL1='';
+   DCL 1 RSC1 STATIC, %INCLUDE QCHRSCS;; RSCP1 = ADDR (RSC1); RSC1='';
+   DCL 1 SED1 STATIC, %INCLUDE QCHSEDS;; SEDP1 = ADDR (SED1); SED1='';
+   DCL 1 SEL1 STATIC, %INCLUDE QCHSELS;; SELP1 = ADDR (SEL1); SEL1='';
+   DCL 1 TCC1 STATIC, %INCLUDE QCHTCCS;; TCCP1 = ADDR (TCC1); TCC1='';
+   DCL 1 TCF1 STATIC, %INCLUDE QCHTCFS;; TCFP1 = ADDR (TCF1); TCF1='';
+ /*DCL 1 TCH1 STATIC, %INCLUDE QCHTCHS;;                        OBS810*/
+ /*                          TCHP1 = ADDR (TCH1); TCH1='';      OBS810*/
+   DCL 1 TCM1 STATIC, %INCLUDE QCHTCMS;; TCMP1 = ADDR (TCM1); TCM1='';
+   DCL 1 TCO1 STATIC, %INCLUDE QCHTCOS;; TCOP1 = ADDR (TCO1); TCO1='';
+ /*DCL 1 TCS1 STATIC, %INCLUDE QCHTCSS;;                        OBS810*/
+ /*                          TCSP1 = ADDR (TCS1); TCS1='';      OBS810*/
+   DCL 1 TFO1 STATIC, %INCLUDE QCHTFOS;; TFOP1 = ADDR (TFO1); TFO1='';
+   DCL 1 TIR1 STATIC, %INCLUDE QCHTIRS;; TIRP1 = ADDR (TIR1); TIR1='';
+   DCL 1 TPT1 STATIC, %INCLUDE QCHTPTS;; TPTP1 = ADDR (TPT1); TPT1='';
+   DCL 1 TRG1 STATIC, %INCLUDE QCHTRGS;; TRGP1 = ADDR (TRG1); TRG1='';
+   DCL 1 XIC1 STATIC, %INCLUDE QCHXICS;; XICP1 = ADDR (XIC1); XIC1='';
+   DCL 1 XIX1 STATIC, %INCLUDE QCHXIXS;; XIXP1 = ADDR (XIX1); XIX1='';
+   DCL 1 XOC1 STATIC, %INCLUDE QCHXOCS;; XOCP1 = ADDR (XOC1); XOC1='';
+   DCL 1 XOX1 STATIC, %INCLUDE QCHXOXS;; XOXP1 = ADDR (XOX1); XOX1='';
+   /* R060 TABLES */
+   DCL 1 BFS1 STATIC, %INCLUDE QCHBFSS;; BFSP1 = ADDR (BFS1); BFS1='';
+   DCL 1 CCE1 STATIC, %INCLUDE QCHCCES;; CCEP1 = ADDR (CCE1); CCE1='';
+   DCL 1 CRA1 STATIC, %INCLUDE QCHCRAS;; CRAP1 = ADDR (CRA1); CRA1='';
+   DCL 1 CRP1 STATIC, %INCLUDE QCHCRPS;; CRPP1 = ADDR (CRP1); CRP1='';
+   DCL 1 CRU1 STATIC, %INCLUDE QCHCRUS;; CRUP1 = ADDR (CRU1); CRU1='';
+   DCL 1 CSC1 STATIC, %INCLUDE QCHCSCS;; CSCP1 = ADDR (CSC1); CSC1='';
+   DCL 1 ELI1 STATIC, %INCLUDE QCHELIS;; ELIP1 = ADDR (ELI1); ELI1='';
+   DCL 1 FLA1 STATIC, %INCLUDE QCHFLAS;; FLAP1 = ADDR (FLA1); FLA1='';
+   DCL 1 FMC1 STATIC, %INCLUDE QCHFMCS;; FMCP1 = ADDR (FMC1); FMC1='';
+   DCL 1 FMO1 STATIC, %INCLUDE QCHFMOS;; FMOP1 = ADDR (FMO1); FMO1='';
+   DCL 1 FRS1 STATIC, %INCLUDE QCHFRSS;; FRSP1 = ADDR (FRS1); FRS1='';
+   DCL 1 FSC1 STATIC, %INCLUDE QCHFSCS;; FSCP1 = ADDR (FSC1); FSC1='';
+   DCL 1 FTS1 STATIC, %INCLUDE QCHFTSS;; FTSP1 = ADDR (FTS1); FTS1='';
+   DCL 1 OBC1 STATIC, %INCLUDE QCHOBCS;; OBCP1 = ADDR (OBC1); OBC1='';
+   DCL 1 OBJ1 STATIC, %INCLUDE QCHOBJS;; OBJP1 = ADDR (OBJ1); OBJ1='';
+   DCL 1 OFF1 STATIC, %INCLUDE QCHOFFS;; OFFP1 = ADDR (OFF1); OFF1='';
+   DCL 1 OVC1 STATIC, %INCLUDE QCHOVCS;; OVCP1 = ADDR (OVC1); OVC1='';
+   DCL 1 OVS1 STATIC, %INCLUDE QCHOVSS;; OVSP1 = ADDR (OVS1); OVS1='';
+   DCL 1 BHS1 STATIC, %INCLUDE QCHBHSS;; BHSP1 = ADDR (BHS1); BHS1='';
+   DCL 1 RLA1 STATIC, %INCLUDE QCHRLAS;; RLAP1 = ADDR (RLA1); RLA1='';
+   DCL 1 TOB1 STATIC, %INCLUDE QCHTOBS;; TOBP1 = ADDR (TOB1); TOB1='';
+   DCL 1 TXT1 STATIC, %INCLUDE QCHTXTS;; TXTP1 = ADDR (TXT1); TXT1='';
+   DCL 1 USC1 STATIC, %INCLUDE QCHUSCS;; USCP1 = ADDR (USC1); USC1='';
+   DCL 1 UTS1 STATIC, %INCLUDE QCHUTSS;; UTSP1 = ADDR (UTS1); UTS1='';
+   /* --- */
+   DCL 1 XXC1 STATIC, %INCLUDE QCHXXCS;; XXCP1 = ADDR (XXC1); XXC1='';
+   DCL 1 XXX1 STATIC, %INCLUDE QCHXXXS;; XXXP1 = ADDR (XXX1); XXX1='';
+ /*----------------------------------------------------------------*/
+   DCL 1 PC11 STATIC, %INCLUDE JAAI01S;; PC0P1 = ADDR (PC11); PC11='';
+   DCL 1 PC21 STATIC, %INCLUDE JAAI11S;; PC1P1 = ADDR (PC21); PC21='';
+   DCL 1 PC31 STATIC, %INCLUDE JAAI12S;; PC2P1 = ADDR (PC31); PC31='';
+ /*----------------------------------------------------------------*/
+   DCL 1 CU11 STATIC, 5 FIL CHAR(1000);; CU1P1 = ADDR (CU11); CU11='';
+   DCL 1 CU21 STATIC, 5 FIL CHAR(1000);; CU2P1 = ADDR (CU21); CU21='';
+   DCL 1 CU31 STATIC, 5 FIL CHAR(1000);; CU3P1 = ADDR (CU31); CU31='';
+   DCL 1 CU41 STATIC, 5 FIL CHAR(1000);; CU4P1 = ADDR (CU41); CU41='';
+   DCL 1 CU51 STATIC, 5 FIL CHAR(1000);; CU5P1 = ADDR (CU51); CU51='';
+ /*----------------------------------------------------------------*/
+   DCL 1 FUU1 STATIC, 5 FIL CHAR(1000);; FUUP1 = ADDR (FUU1); FUU1='';
+   DCL 1 FUU2 STATIC, 5 FIL CHAR(1000);; FUUP2 = ADDR (FUU2); FUU2='';
+ /*-------------------------------------------------------------------*/
+ /*                                                                   */
+ /*-------------------------------------------------------------------*/
+   DCL 1 SPP, %INCLUDE QCHPTRS;;         PTRP1 = ADDR (SPP) ;
+   DCL 1 SP2, %INCLUDE QCHPTR2;;     SPP.PTRP2 = ADDR (SP2) ;
+
+ /*-------------------------------------------------------------------*/
+ /* TABLE STRUCTURES BASED OM SPP.SPA POINTERS                        */
+ /*-------------------------------------------------------------------*/
+   DCL 1 OJS  STATIC, %INCLUDE QCHOBJS;; OJSP1 = ADDR (OJS ); OJS ='';
+   DCL 1 OJC  STATIC, %INCLUDE QCHOBJS;; OJCP1 = ADDR (OJC ); OJC ='';
+   DCL 1 OJI  STATIC, %INCLUDE QCHOBJS;; OJIP1 = ADDR (OJI ); OJI ='';
+   DCL 1 OJR  STATIC, %INCLUDE QCHOBJS;; OJRP1 = ADDR (OJR ); OJR ='';
+   DCL 1 OTS  STATIC, %INCLUDE QCHTOBS;; OTSP1 = ADDR (OTS ); OTS ='';
+   DCL 1 OTC  STATIC, %INCLUDE QCHTOBS;; OTCP1 = ADDR (OTC ); OTC ='';
+   DCL 1 OTI  STATIC, %INCLUDE QCHTOBS;; OTIP1 = ADDR (OTI ); OTI ='';
+   DCL 1 OTR  STATIC, %INCLUDE QCHTOBS;; OTRP1 = ADDR (OTR ); OTR ='';
+
+   DCL 1 GRP1 STATIC, %INCLUDE QCHGRPS;; GRPP1 = ADDR (GRP1); GRP1='';
+   DCL 1 GIT1 STATIC, %INCLUDE QCHGITS;; GITP1 = ADDR (GIT1); GIT1='';
+   DCL 1 FUN1 STATIC, %INCLUDE QCHFUNS;; FUNP1 = ADDR (FUN1); FUN1='';
+   DCL 1 GFU1 STATIC, %INCLUDE QCHGFUS;; GFUP1 = ADDR (GFU1); GFU1='';
+ /*DCL 1 HLS1 STATIC, %INCLUDE QCHHLSS;;                        OBS810*/
+ /*                          HLSP1 = ADDR (HLS1); HLS1='';      OBS810*/
+   DCL 1 TCG1 STATIC, %INCLUDE QCHTCGS;; TCGP1 = ADDR (TCG1); TCG1='';
+   DCL 1 TOW1 STATIC, %INCLUDE QCHTOWS;; TOWP1 = ADDR (TOW1); TOW1='';
+
+ /* ACCENT DECLARES BEGIN -----------------------------------------*/
+   DCL 1 API1 STATIC, %INCLUDE QCHAPIIB;;APIP1 = ADDR (API1);
+ /* ACCENT DECLARES END -------------------------------------------*/
+
+   DCL 1 BBH1 STATIC, %INCLUDE QCHBBHS;; BBHP1 = ADDR (BBH1); BBH1='';
+   DCL 1 IUG1 STATIC, %INCLUDE QCHIUGS;; IUGP1 = ADDR (IUG1); IUG1='';
+   DCL 1 VAT1 STATIC, %INCLUDE QCHVATS;; VATP1 = ADDR (VAT1); VAT1='';
+   DCL 1 FCR1 STATIC, %INCLUDE QCHFCRS;; FCRP1 = ADDR (FCR1); FCR1='';
+   DCL 1 IPR1 STATIC, %INCLUDE QCHIPRS;; IPRP1 = ADDR (IPR1); IPR1='';
+   DCL 1 PER1 STATIC, %INCLUDE QCHPERS;; PERP1 = ADDR (PER1); PER1='';
+   DCL 1 PKG1 STATIC, %INCLUDE QCHPKGS;; PKGP1 = ADDR (PKG1); PKG1='';
+   DCL 1 PDC1 STATIC, %INCLUDE QCHPDCS;; PDCP1 = ADDR (PDC1); PDC1='';
+   DCL 1 PTE1 STATIC, %INCLUDE QCHPTES;; PTEP1 = ADDR (PTE1); PTE1='';
+   DCL 1 PEL1 STATIC, %INCLUDE QCHPELS;; PELP1 = ADDR (PEL1); PEL1='';
+   DCL 1 PIN1 STATIC, %INCLUDE QCHPINS;; PINP1 = ADDR (PIN1); PIN1='';
+   DCL 1 PCN1 STATIC, %INCLUDE QCHPCNS;; PCNP1 = ADDR (PCN1); PCN1='';
+   DCL 1 PCE1 STATIC, %INCLUDE QCHPCES;; PCEP1 = ADDR (PCE1); PCE1='';
+   DCL 1 COT1 STATIC, %INCLUDE QCHCOTS;; COTP1 = ADDR (COT1); COT1='';
+   DCL 1 REV1 STATIC, %INCLUDE QCHREVS;; REVP1 = ADDR (REV1); REV1='';
+   DCL 1 FLW1 STATIC, %INCLUDE QCHFLWS;; FLWP1 = ADDR (FLW1); FLW1='';
+ /*DCL 1 PTS1 STATIC, %INCLUDE QCHPTSS;;                        OBS810*/
+ /*                          PTSP1 = ADDR (PTS1); PTS1='';      OBS810*/
+   DCL 1 PHC1 STATIC, %INCLUDE QCHPHCS;; PHCP1 = ADDR (PHC1); PHC1='';
+   DCL 1 PLD1 STATIC, %INCLUDE QCHPLDS;; PLDP1 = ADDR (PLD1); PLD1='';
+   DCL 1 PRL1 STATIC, %INCLUDE QCHPRLS;; PRLP1 = ADDR (PRL1); PRL1='';
+   DCL 1 VAD1 STATIC, %INCLUDE QCHVADS;; VADP1 = ADDR (VAD1); VAD1='';
+   DCL 1 SID1 STATIC, %INCLUDE QCHSIDS;; SIDP1 = ADDR (SID1); SID1='';
+   DCL 1 SIE1 STATIC, %INCLUDE QCHSIES;; SIEP1 = ADDR (SIE1); SIE1='';
+   DCL 1 PDG1 STATIC, %INCLUDE QCHPDGS;; PDGP1 = ADDR (PDG1); PDG1='';
+ /*DCL 1 PLC1 STATIC, %INCLUDE QCHPLCS;;                        OBS810*/
+ /*                          PLCP1 = ADDR (PLC1); PLC1='';      OBS810*/
+   DCL 1 PED1 STATIC, %INCLUDE QCHPEDS;; PEDP1 = ADDR (PED1); PED1='';
+   DCL 1 PCP1 STATIC, %INCLUDE QCHPCPS;; PCPP1 = ADDR (PCP1); PCP1='';
+ /*-------------------------------------------------------------------*/
+ /* WORK  STRUCTURES BASED OM SPP.SPA POINTERS                        */
+ /*-------------------------------------------------------------------*/
+   DCL 1 PP1  STATIC, %INCLUDE QCHPRTP1;;PP1P1 = ADDR (PP1 ); PP1 ='';
+   DCL 1 PP2  STATIC, %INCLUDE QCHPRTP2;;PP2P1 = ADDR (PP2 ); PP2 ='';
+   DCL 1 PP3  STATIC, 5 TK2  CHAR( 70  );PP3P1 = ADDR (PP3 ); PP3 ='';
+
+   DCL 1 PSD  STATIC, %INCLUDE QCHPSDW;; PSDP1 = ADDR (PSD ); PSD ='';
+
+   DCL 1 ESC  STATIC, %INCLUDE QCHESCS;; ESCP1 = ADDR (ESC ); ESC ='';
+   DCL 1 CTXT STATIC, %INCLUDE QCHCTXT;; CTXP1 = ADDR (CTXT); CTXT='';
+   DCL 1 WTAA STATIC, %INCLUDE QCHTAAW;; TAAP1 = ADDR (WTAA); WTAA='';
+   DCL 1 G4W1 STATIC, %INCLUDE QCHGFUG4;;G4WP1 = ADDR (G4W1); G4W1='';
+   DCL 1 EOS1 STATIC, %INCLUDE QCHEOS1;; EOSP1 = ADDR (EOS1); EOS1='';
+   /* MSO 2001-01-10:
+   /* MOVED XX5 FROM QCHDSTM TO QCHDRTM BECAUSE QCHDSTM PROGRAM TOO */
+   /* LARGE.                                                        */
+ /*-------------------------------------------------------------------*/
+ /* BUSINESS PROCESS STRUCTURE POINTERS                               */
+ /*-------------------------------------------------------------------*/
+
+   DCL 1 CHG1 STATIC, %INCLUDE QCHCHGS;; CHGP1 = ADDR (CHG1); CHG1='';
+   DCL 1 ASG1 STATIC, 5 FIL CHAR(1000);; ASGP1 = ADDR (ASG1); ASG1='';
+   DCL 1 WRK1 STATIC, 5 FIL CHAR(1000);; WRKP1 = ADDR (WRK1); WRK1='';
+   DCL 1 WRK2 STATIC, 5 FIL CHAR(1000);; WRKP2 = ADDR (WRK2); WRK2='';
+   DCL 1 WRK3 STATIC, 5 FIL CHAR(1000);; WRKP3 = ADDR (WRK3); WRK3='';
+   DCL 1 WRK4 STATIC, 5 FIL CHAR(1000);; WRKP4 = ADDR (WRK4); WRK4='';
+   DCL 1 WRK5 STATIC, 5 FIL CHAR(1000);; WRKP5 = ADDR (WRK5); WRK5='';
+   DCL 1 DEFAREAS1 STATIC, %INCLUDE QCHDFAR;;
+         P_DEFAREAS = ADDR (DEFAREAS1);
+
+   CALL QCHDRTM ($$USPAPTR);
+
+ /*-------------------------------------------------------------------*/
+ /* INCB STRUCTURES                                                   */
+ /*-------------------------------------------------------------------*/
+
+
+   DCL 1 DI STATIC,
+         2 CTYFT     CHAR(6),
+         INCB UNDEF,N,RRDDI1;
+   WDIP1 = ADDR(DI);
+
+   DCL 1 DO STATIC,
+         2 CTYFT     CHAR(6),
+         INCB UNDEF,N,RRDDO1;
+   WDOP1 = ADDR(DO);
+
+   DCL 1 DF STATIC,
+         2 CTYFT     CHAR(6),
+         INCB UNDEF,N,RRDDF1;
+   WDFP1 = ADDR(DF);
+
+   DCL 1 DC STATIC,
+         2 CTYFT     CHAR(6),
+         INCB UNDEF,N,RRDDC1;
+   WDCP1 = ADDR(DC);
+
+   DCL 1 DR STATIC,
+         2 CTYFT     CHAR(6),
+         INCB UNDEF,N,RRDDR1;
+   WDRP1 = ADDR(DR);
+
+ /*-------------------------------------------------------------------*/
+ /* INTERPRETER'S USER VARIABLES                                      */
+ /*-------------------------------------------------------------------*/
+
+   DCL 1 USV1(200) STATIC, %INCLUDE QCHUSVS;;
+                                          USERVAR_PTR = ADDR (USV1);
+                                                               USV1='';
+
+                                       /* APPLICATION USE AREA        */
+   DCL   AUA1 STATIC  CHAR(256);         AUAP1 = ADDR (AUA1); AUA1='';
+   DCL   AUA2 STATIC  CHAR(8000);        AUAP2 = ADDR (AUA2); AUA2='';
+   DCL   AUA3 STATIC  CHAR(2000);        AUAP3 = ADDR (AUA3); AUA3='';
+   DCL   AUA4 STATIC  CHAR(2000);        AUAP4 = ADDR (AUA4); AUA4='';
+   DCL   KEY1 STATIC  CHAR( 768);        KEYP1 = ADDR (KEY1);
+
+ /*-------------------------------------------------------------------*/
+ /* PRINTER'S SYSTEM VARIABLES                                        */
+ /*-------------------------------------------------------------------*/
+
+   DCL 1 SYV1 STATIC, %INCLUDE QCHSYVS;; SYVP1 = ADDR (SYV1); SYV1='';
+         SYV1.PAGE = 1;
+         SYV1.PRINT_APPENDIX = 'Y';
+         SYV1.PRINT_DATALINE = 'Y';
+         SYV1.PRINT_GROUPLNE = 'Y';
+                                       /* DRIVERS STATISTICS & STATUS */
+   DCL 1 QCHSTAT   EXTERNAL,
+         2 ST,
+           %INCLUDE QCHSTTS;
+         QCHSTAT = '';
+   ;
+
+- END QCHDSTM ;

@@ -1,0 +1,748 @@
+ /*********************************************************************/
+ /* MODULE NAME  : QCHDRVM                                            */
+ /* APPLICATION  : CHIS                                               */
+ /* FUNCTION     : THE CHIS DRIVER, EXECUTES ALL CHIS RULES FROM A CFL*/
+ /*              : CALLED RECURSIVELY BY QCHDDDM (DATA DRIVEN DRIVER) */
+ /* AUTHOR       : F. GROSSENBERGER  REJUVENATED BY M. IWANIEWICZ     */
+ /* DATE         : 13-03-87                                           */
+ /* HISTORY      : TYPE HIST IN COMMAND LINE AND PRESS ENTER          */
+ /*-------------------------------------------------------------------*/
+ /********************************************************************/
+
+   %INCLUDE QCH##PAD;
+   %INCLUDE QCH##EPS;
+ QCHDRVM:  PROC (TYPE_OF_RULE,
+                 SP_CHIS_RULES) REORDER;
+   #MODIDENT(QCHDRVM);
+
+ /*-------------------------------------------------------------------*/
+ /*  INCLUDE SDTM STANDARD ENVIROMENT                                 */
+ /*-------------------------------------------------------------------*/
+
+      %INCLUDE QCHDEPS;
+      %INCLUDE QCHSHYSP;
+      %INCLUDE RTTSHYS;
+      %INCLUDE QCHSHYSX;
+
+ /*-------------------------------------------------------------------*/
+ /*  DECLARE SDTM PROVIDED USER SPA AREAS                             */
+ /*-------------------------------------------------------------------*/
+
+   DCL  1 SP  BASED($$USPAPTR) ,      %INCLUDE QCHSPAS; ;
+   DCL  1 CTL BASED(SP.CTLP1 ) ,      %INCLUDE QCHCTLS; ;
+
+ /*-------------------------------------------------------------------*/
+ /*  MODULE IDENTIFICATION                                            */
+ /*-------------------------------------------------------------------*/
+
+   %DCL COMPILETIME BUILTIN;
+   %DCL $$COMPDATE CHAR;
+   %$$COMPDATE = '''' !! COMPILETIME !! '''';
+   DCL 1 $$MODID_BLOCK,
+         3 $$FILL1    CHAR(4)  INIT('*** '),
+         3 $$MOD_NAME CHAR(8)  INIT('QCHDRVM '),
+         3 $$FILL2    CHAR(2)  INIT('  '),
+         3 $$COM_DATE CHAR(18) INIT($$COMPDATE),
+         3 $$FILL3    CHAR(4)  INIT(' ***');
+
+ /*-------------------------------------------------------------------*/
+ /*  FILES                                                            */
+ /*-------------------------------------------------------------------*/
+
+   DCL SYSPRINT FILE PRINT;
+
+ /*-------------------------------------------------------------------*/
+ /*  DECLARATIONS OF PARAMETERS PASSED AND ASSOCIATED AREAS           */
+ /*-------------------------------------------------------------------*/
+
+   DCL TYPE_OF_RULE CHAR(01);
+
+   DCL SP_CHIS_RULES POINTER;
+
+
+   MACDCLS;
+      %INCLUDE QCHDRVS;
+      %INCLUDE QCHSHYSS;
+ /*-------------------------------------------------------------------*/
+ /*-------------------------------------------------------------------*/
+ /* THIS DEFINITION IS TO MAP THE DATA AS HELD IN THE LINKLISTS.      */
+ /*-------------------------------------------------------------------*/
+   DCL  1 CHIS_RULE   UNAL BASED (R),
+           %INCLUDE  QCHCFLSX;
+ /*-------------------------------------------------------------------*/
+ /* THIS DEFINITION IS TO MAP THE EXPANDED DATA. IT IS GENERATED FOR  */
+ /* COMPATIBILITY WITH THE ORIGINAL DRIVER.                           */
+ /*-------------------------------------------------------------------*/
+   DCL  1 CHIS_RULE_A AUTO,
+           %INCLUDE  QCHCFLS;;
+   DCL PIC6           PIC'(6)9' BASED;
+   DCL 1 TEMP         CHAR(76),
+         1 TEMPX      DEF TEMP,
+           3 PARM1    CHAR(18),
+           3 DESCR    CHAR(40),
+           3 PARM2    CHAR(18);
+   DCL 1 QCHCFLEV     BASED(CHIS_RULE.LMOD_PTR),
+         %INCLUDE QCHCFLEV;
+
+   DCL  R           POINTER;
+
+   DCL
+     1 SYV         BASED (SP.SYVP1),
+       %INCLUDE    QCHSYVS;;
+   DCL
+     1 QCHSTAT     EXTERNAL,
+       2 ST,
+         %INCLUDE  QCHSTTS;
+   DCL
+       STOP_RC     FIXED(2);
+   DCL
+       RC_CHAR     CHAR(4) DEFINED (RC_PIC),
+       RC_PIC      PIC'---9';
+   DCL
+       RE1MTXT     CHAR(80) EXTERNAL;
+   DCL                                 /* RULE START/STOP TIME        */
+      (TSTART,TSTOP) CHAR(9);
+   DCL                                 /* RULE START TIME             */
+     1 TA          DEFINED (TSTART),
+       2 (HH,MM,SS) PIC'99',
+       2 TTT       PIC'999';
+   DCL                                 /* RULE STOP TIME              */
+     1 TO          DEFINED (TSTOP) LIKE TA;
+
+   DCL
+     1 PARM1_RULA  DEFINED (CHIS_RULE_A.PARM1),
+       2 FILLER      CHAR(  6  ),
+       2 DDD_ERR     CHAR(  1  );
+ /*----------------------------------------------------------------*/
+   /* START, STOP, ELAPSED TIME IN MS                              */
+   /*--------------------------------------------------------------*/
+   DCL  TSTA         DEC FIXED (  9  )      INIT( 0 );
+   DCL  TSTO         DEC FIXED (  9  )      INIT( 0 );
+   DCL  TELA         DEC FIXED (  9  )      INIT( 0 );
+   DCL  PIC_TOTELA5  PIC       'ZZZZ9'               ;
+   DCL  PIC_TOTELA6  PIC       'ZZZZ9'               ;
+
+   DCL  TIM_BEFEXEC  DEC FIXED ( 15  )               ;                     ;
+   DCL  TIM_AFTEXEC  DEC FIXED ( 15  )               ;                     ;
+   DCL  TIM_ELAPSED  DEC FIXED ( 15  )               ;                     ;
+
+   DCL  CL_BEFORE   CHAR(24),
+        CL_AFTER    CHAR(24) BASED (ADDR (SP.CONTROL_LINKAGES));
+
+   DCL  (LOW,INDEX,TIME,MAX,MOD, PLIDUMP)    BUILTIN;
+
+   DCL  TRC_TXT      CHAR      (150  )      VAR      ;
+   DCL  MOD_IDENT    CHAR      ( 17  )      INIT('.. ..... QCHDRVM ');
+
+ /*-------------------------------------------------------------------*/
+
+   DCL  TRC_TIME     BIT       (  1  );
+   DCL  RUL_IDENT    CHAR      (  1  ); /* 4TH CHAR OF RULENAME (4,5) */
+   DCL  SKP_RULEEXE  CHAR      (  1  ); /* SKIP RULE EXECUTION INDIC. */
+
+ /*-------------------------------------------------------------------*/
+ /*  DRIVER LOGIC STARTS, FINALY                                      */
+ /*-------------------------------------------------------------------*/
+
+   CALL QCHDTTM ($$MOD_NAME, SP.IO_FUNC!!TYPE_OF_RULE);
+                                       /* L00M DID SET IT'S OWN       */
+                                       /* DEBUG EXIT                  */
+   IF SP.RUN_MODE ^= 'B'
+   THEN SP.DEBUG_EXIT = BR14;
+                                       /* TRY TO DETECT LOOPS.        */
+                                       /* COUNT CHANGES IN I/O/D/B    */
+   ST.FUNC_SWAP ( INDEX ('IODB',ST.PREV_IO),
+                  INDEX ('IODB',SP.IO_FUNC) ) =
+   ST.FUNC_SWAP ( INDEX ('IODB',ST.PREV_IO),
+                  INDEX ('IODB',SP.IO_FUNC) ) + 1;
+   ST.PREV_IO = SP.IO_FUNC;
+                                       /* COUNT CALLS TO DRIVER       */
+   ST.DRVM_INVOCATIONS = ST.DRVM_INVOCATIONS + 1;
+   IF MOD(ST.DRVM_INVOCATIONS,10000) = 0
+   THEN CALL PUT_STATISTICS(SP.CURRENT_RULE);
+
+ /*-------------------------------------------------------------------*/
+ /* AVOID UNNECESSARY PROCESSNG. IRRECOVERABLE ERRORS,                */
+ /* MSG ISSUED IN OTHER MODULES. (IMMRET IS A MACRO)                  */
+ /*-------------------------------------------------------------------*/
+
+   IF SP.MAXRC >= 16 THEN IMMRET;
+
+ /*-------------------------------------------------------------------*/
+ /* END OF PROCESSING REQUSETED BY A RULE                             */
+ /*-------------------------------------------------------------------*/
+
+
+   IF SP.EOP_FROM_RULE
+   THEN DO;
+          PSK(SP.IO_FUNC,SP.BLE_FUNC,', ',
+                               'RETURN BECAUSE EOP_FROM_RULE RAISED.');
+          RETURN;
+        END;
+
+ /*-------------------------------------------------------------------*/
+ /* END OF DATA REQUESTED BY A CHIS LINE RULE                         */
+ /*-------------------------------------------------------------------*/
+
+   IF TYPE_OF_RULE = 'L' &
+      SP.EOD_FROM_RULE
+   THEN DO;
+          PSK(SP.IO_FUNC,SP.BLE_FUNC,', ',
+                              'RETURN BECAUSE EOD_FROM_RULE RAISED.') ;
+          RETURN;
+        END;
+
+ /*-------------------------------------------------------------------*/
+ /* DONT EXECUTE INPUT LINE RULE IF ITS EMPTY (LINE HAS ONLY DOTS)    */
+ /*-------------------------------------------------------------------*/
+
+   IF  SP.IO_FUNC   = 'I' &
+       TYPE_OF_RULE = 'L' &
+       ^SP.SCR_LNE_INPUT
+   THEN DO;
+          SP.LNECNTI = SP.LNECNTI + 1;
+          PSK(SP.IO_FUNC,SP.BLE_FUNC,', ',
+                          'RETURN BECAUSE NOT INPUT ON SCREEN LINE.') ;
+          RETURN;
+        END;
+                                       /* FOR I- AND O-RULES,         */
+                                       /* SAVE TYPE OF RULE (B/L/E)   */
+   SP.BLE_FUNC = TYPE_OF_RULE;
+
+ /*-------------------------------------------------------------------*/
+ /* SET THE VALUE OF THE STOP RETURN CODE                             */
+ /*-------------------------------------------------------------------*/
+
+   SELECT (TYPE_OF_RULE);
+      WHEN ('B') STOP_RC =  8;
+      WHEN ('L') STOP_RC =  8;
+      WHEN ('E') STOP_RC = 12;
+   END;
+
+ /*-------------------------------------------------------------------*/
+ /* CHECK IF STOP RETURN CODE ALREADY REACHED                         */
+ /*-------------------------------------------------------------------*/
+
+   IF SP.MAXRC >= STOP_RC &
+      ^SP.IGNORE_MAXRC
+
+   THEN DO;
+          PSK('RETURN BECAUSE SP.MAXRC >= STOP_RC / ',
+                                               SP.MAXRC,'>=',STOP_RC) ;
+          RETURN;
+        END;
+
+ /*-------------------------------------------------------------------*/
+ /* OVERWRITE SDTM ON-ERROR (NOT RECURSIVELY) WITH CHIS ERROR HANDLING*/
+ /*-------------------------------------------------------------------*/
+
+   IF SP.IO_FUNC = 'I' !
+      SP.IO_FUNC = 'O'
+   THEN DO;
+
+          ON ERROR SNAP
+            BEGIN;
+              OPEN  FILE  ( SYSPRINT );
+              PUT SKIP EDIT ('ON ERROR PLIDRV GHA MORE TRACE')(A);
+              PUT SKIP EDIT ('DATAFIELD='!!DATAFIELD())(A);
+              PUT SKIP EDIT ('ONCHAR   ='!!ONCHAR()) (A);
+              PUT SKIP EDIT ('ONCODE   ='!!ONCODE()) (A);
+              PUT SKIP EDIT ('ONCOUNT  ='!!ONCOUNT()) (A);
+              PUT SKIP EDIT ('ONLOC    ='!!ONLOC()) (A);
+              PUT SKIP EDIT ('ONSOURCE ='!!ONSOURCE()) (A);
+              CLOSE FILE  ( SYSPRINT );
+              ON ERROR SNAP
+
+              CALL PLIDUMP ('TFCHBA',
+                            'QCHDRVM''S EMERGENCY ''ON ERROR''');
+
+              CALL QCHDCUM (SP.I_RULES);
+
+              GO TO REVERT_ERROR;
+            END;
+        END;
+
+   GO TO CONTINUE;
+                                       /* LET SDTM DO THE REST        */
+ REVERT_ERROR:
+
+         REVERT ERROR;
+         SIGNAL ERROR;
+
+ /*-------------------------------------------------------------------*/
+ /*                START OF DRIVER RULE EXECUTION LOOP                */
+ /*-------------------------------------------------------------------*/
+
+ CONTINUE:
+
+   SP.EOL_FROM_RULE = '0'B;
+
+   DO R = SP_CHIS_RULES REPEAT CHIS_RULE.NEXT
+          WHILE(R               ^= NULL &
+                (SP.MAXRC < STOP_RC   !
+                 SP.IGNORE_MAXRC)       &
+                ^SP.EOP_FROM_RULE       &
+                ^SP.EOL_FROM_RULE       &
+                ^(TYPE_OF_RULE = 'L' &  SP.EOD_FROM_RULE = '1'B));
+
+      /*-----------------------------------------------------------*/
+      /* CONTROL LINKAGES DESTROYED?                               */
+      /* STORE POINTER OF CURRENT CFL LINE (CHIS RULE)             */
+      /* RESET RETURN CODES & MSG.NO                               */
+      /*-----------------------------------------------------------*/
+
+      CL_BEFORE       = CL_AFTER           ;
+      SP.CURRENT_RULE = ADDR(CHIS_RULE_A);
+      TEMP = CHIS_RULE.PARMDATA;
+      CHIS_RULE_A.IOPUCTY = SUBSTR(SP.CFLK1,1,3);
+      CHIS_RULE_A.SCREEN  = SUBSTR(SP.CFLK1,4,3);
+      CHIS_RULE_A.SUBPROC = SUBSTR(SP.CFLK1,7,30);
+      ADDR(CHIS_RULE_A.STEP)->PIC6 = CHIS_RULE.STEP;
+
+      IF CHIS_RULE.NEXT = NULL
+      THEN CHIS_RULE_A.NEXT_STEP = '999999';
+      ELSE ADDR(CHIS_RULE_A.NEXT_STEP)->PIC6 =
+                                        CHIS_RULE.NEXT->CHIS_RULE.STEP;
+
+      CHIS_RULE_A.PARM_IDX(*,*) = CHIS_RULE.PARM_IDX(*,*);
+      CHIS_RULE_A.SDTMRULE = SP.IO_FUNC !! TYPE_OF_RULE;
+      CHIS_RULE_A.RULEIMPL = CHIS_RULE.RULEIMPL;
+      CHIS_RULE_A.RULENAME = #RULE_NAME(R);
+      CHIS_RULE_A.PARM1 = TEMPX.PARM1;
+      CHIS_RULE_A.PARM2 = TEMPX.PARM2;
+      CHIS_RULE_A.DESCR = TEMPX.DESCR;
+      CHIS_RULE_A.IAGRENO = '';
+      CHIS_RULE_A.CAGRCTY = '';
+      CHIS_RULE_A.IAGRVER = '';
+      CHIS_RULE_A.DAGREEX = '';
+      CHIS_RULE_A.DDBSLUP = '';
+      CHIS_RULE_A.TTBSLUP = '';
+      CHIS_RULE_A.IUSRIDY = '';
+      SYV.MSGNO       = ''                 ;
+      SYV.MSGSEV      = ''                 ;
+      SYV.VARTXT      = ''                 ;
+      SP.RC           = 00                 ;
+      SP.MSGNO        = ''                 ;
+      SP.MSGSEV       = ''                 ;
+      SP.VARTXT       = ''                 ;
+      SP.PARM1        = CHIS_RULE_A.PARM1;
+      SP.PARM2        = CHIS_RULE_A.PARM2;
+      SP.RULE_NAME    = CHIS_RULE_A.RULENAME;
+      RUL_IDENT       = SUBSTR(SP.RULE_NAME, 4, 1) ;
+
+      CALL QCHDTTM ($$MOD_NAME, SP.RULE_NAME);
+
+      SKP_RULEEXE = 'N'         ;
+      CALL QCHDEPM ($$USPAPTR , SKP_RULEEXE );
+
+      /*-----------------------------------------------------------*/
+      /* TRY TO DETECT LOOPS                                       */
+      /*-----------------------------------------------------------*/
+
+      ST.RULES_EXECUTED = ST.RULES_EXECUTED + 1;
+      IF MOD(ST.RULES_EXECUTED,50000) =  0 &
+         SP.RUN_MODE                  = 'M'
+      THEN CALL PUT_STATISTICS(ADDR(CHIS_RULE_A));
+
+ /*-------------------------------------------------------------------*/
+ /*                  EXECUTE CFL RULE                                 */
+ /*-------------------------------------------------------------------*/
+    /* KEEP RULE START TIME                                        */
+    /*-------------------------------------------------------------*/
+
+      TRC_TIME = '0'B;
+      IF SP.DDIAG = '1'B !
+         SP.RDIAG = '1'B
+      THEN DO;
+             TRC_TIME = '1'B;
+             TSTART = TIME;
+             TSTA = ((TA.HH * 60 + TA.MM) * 60 + TA.SS) * 1000 + TA.TTT;
+           END;
+
+      SELECT (CHIS_RULE_A.RULEIMPL);
+      /*-----------------------------------------------------------*/
+         WHEN ('L')            /* DATA DRIVEN DRIVER LINKED TO DRVM*/
+      /*-----------------------------------------------------------*/
+            SELECT;
+              WHEN(SP.NOT_START_DD = '1'B)
+                DO;
+                  SP.NOT_START_DD = '0'B;
+                  SKP_RULEEXE     = 'Y' ;
+                  /*----------------------------------------------*/
+                  PSK('DDD NOT EXECUTED BECAUSE ',
+                      'NOT_START_DD IS RAISED') ;
+                  /*------------------------------------------------*/
+                END;
+              WHEN(SKP_RULEEXE ^= 'N');
+              OTHER
+                DO;
+                  SP.PARM2 = CHIS_RULE_A.STEP;
+
+                  CALL QCHDDDM ($$USPAPTR);
+
+                  IF DDD_ERR          = '*'
+                  &  SP.RUN_MODE     ^= 'M'
+                  &  SP.EOP_FROM_RULE = '1'B THEN DO;
+                     SP.EOP_FROM_RULE = '0'B;
+                     SP.EOP_RESETED   = '1'B;
+                  END;
+                END;
+            END;
+      /*-----------------------------------------------------------*/
+         WHEN ('-')              /* PLI OR SQL RULE WILL BE EXEC. */
+      /*-----------------------------------------------------------*/
+
+            IF SKP_RULEEXE  = 'N'
+            THEN CALL QCHCFLEV.LMOD_EV($$USPAPTR);
+      /*-----------------------------------------------------------*/
+         WHEN ('I') DO;        /* INTERPRETER RULE                 */
+      /*-----------------------------------------------------------*/
+          /*----------------------------------------------------*/
+            /* QCHDIRM READS INT RULE IN POINTER CHAIN INT_RULE */
+            /*--------------------------------------------------*/
+            TIM_BEFEXEC = RFBZDVM;
+
+            CALL QCHDIRM;
+
+            TIM_AFTEXEC = RFBZDVM;
+            TIM_ELAPSED = QCH0TAM(TIM_BEFEXEC,TIM_AFTEXEC,'T');
+
+            PSK('INT LOAD ELAPSED TIME:', TIM_ELAPSED,'/' );
+
+          /*----------------------------------------------------*/
+            /* QCHDISM READS VAR OFFSETS FROM STR TABLE         */
+            /*--------------------------------------------------*/
+            IF SP.INT_STRUCS = NULL
+            THEN CALL QCHDISM;
+
+          /*----------------------------------------------------*/
+            /* IF INT RULE AND VARIABLES AVALIABLE EXECUTE INT  */
+            /*--------------------------------------------------*/
+            IF SP.INT_RULES  = NULL
+            THEN DO;
+                   UPSK('INT. RULE NOT FOUND') ;
+                 END;
+
+            IF SP.INT_STRUCS = NULL
+            THEN DO;
+                   UPSK('NO ENTRIES ON STR TABLE') ;
+                 END;
+
+            IF SP.INT_RULES  ^= NULL
+            &  SP.INT_STRUCS ^= NULL
+            THEN DO;
+
+                   PSK('CALLS INTERPRETER') ;
+
+                   CALL QCHDTTM ($$MOD_NAME, 'CALLING INTM');
+
+                   TIM_BEFEXEC = RFBZDVM;
+
+                   CALL QCHINTM ($$USPAPTR);
+
+                   TIM_AFTEXEC = RFBZDVM;
+                   TIM_ELAPSED = QCH0TAM(TIM_BEFEXEC,TIM_AFTEXEC,'T');
+
+                   PSK('INT RULE ELAPSED TIME:', TIM_ELAPSED,'/' );
+
+                  CALL QCHDTTM ($$MOD_NAME, 'BACK FROM INTM');
+                END;
+
+          /*----------------------------------------------------*/
+            /* QCHDIRC MAKES A CLEANUP OF INT.RULE AND VAR.STR. */
+            /*--------------------------------------------------*/
+
+            CALL QCHDIRC;
+
+          /*----------------------------------------------------*/
+            /* HANDLE MESSAGES ISSUED FROM INTERPRETER        . */
+            /*--------------------------------------------------*/
+
+            IF SYV.MSGNO  ^=''
+            !  SYV.MSGSEV ^=''
+            !  SYV.VARTXT ^='' THEN DO;
+               IF SYV.MSGNO = '' THEN
+                  SYV.MSGNO = '004';
+               IF SYV.MSGSEV = '' THEN
+                 FLGFLD (*,SP.SYSPREF!!SYV.MSGNO,'D',       SYV.VARTXT);
+               ELSE
+                 FLGFLD (*,SP.SYSPREF!!SYV.MSGNO,SYV.MSGSEV,SYV.VARTXT);
+               PSK('MSG ISSUED: ',RE1MTXT) ;
+            END;
+         END;
+      /*-----------------------------------------------------------*/
+         OTHERWISE DO;         /* INVALID RULE IDENTIFIER          */
+      /*-----------------------------------------------------------*/
+            FLGFLD                        (*,SP.SYSPREF!!'021','M',
+                CHIS_RULE_A.RULEIMPL!!','!!CHIS_RULE_A.RULENAME);
+         END;
+      END;
+
+ /*-------------------------------------------------------------------*/
+ /* AFTER RULE EXECUTION: MEASSURE ELAPSED TIME                       */
+ /*-------------------------------------------------------------------*/
+
+      IF TRC_TIME = '1'B THEN DO;
+         TSTOP = TIME;
+         TSTO = ((TO.HH * 60 + TO.MM) * 60 + TO.SS) * 1000 + TO.TTT;
+
+         TELA = TSTO - TSTA;
+         SELECT (CHIS_RULE_A.RULEIMPL);
+         /*--------------------------------------------------------*/
+            WHEN ('L') DO;
+         /*--------------------------------------------------------*/
+               IF TELA > 2000 THEN DO;
+                  PIC_TOTELA6 = TELA;
+                  PSK(REPEAT('š',37) ,
+                             ' '            ,
+                             PIC_TOTELA6    ,
+                             ' MS ELAPSED  FOR ENTIRE DDX BLOCK') ;
+               END;
+            END;
+         /*--------------------------------------------------------*/
+            OTHERWISE DO;
+         /*--------------------------------------------------------*/
+               IF SKP_RULEEXE = 'N' THEN DO;
+                  PIC_TOTELA5 = TELA;
+                  MOD_IDENT = REPEAT(' ',11)                  !!
+                              SUBSTR(CHIS_RULE_A.RULENAME, 4, 3) ;
+
+                  PSK(REPEAT(' ',34)                   ,
+                      '-'                              ,
+                      REPEAT(' ',17)                   ,
+                      '-'                              ,
+                      SUBSTR(TEMPX.DESCR   ,37, 3) ,
+                      PIC_TOTELA5                      ) ;
+
+                  MOD_IDENT = '.. ..... QCHDRVM ';
+               END;
+            END;
+         END;
+                                       /* TOTAL ELAPSED TIME BY RULE  */
+         SELECT;
+         /*--------------------------------------------------------*/
+            WHEN (CHIS_RULE_A.RULENAME='QCHPRTP')
+               ST.TELA4 = ST.TELA4 + TELA;
+         /*--------------------------------------------------------*/
+            WHEN (CHIS_RULE_A.RULEIMPL='P'      )
+               ST.TELA1 = ST.TELA1 + TELA;
+            WHEN (CHIS_RULE_A.RULEIMPL='S'      )
+               ST.TELA2 = ST.TELA2 + TELA;
+            WHEN (CHIS_RULE_A.RULEIMPL='I'      )
+               ST.TELA3 = ST.TELA3 + TELA;
+            WHEN (CHIS_RULE_A.RULEIMPL='-'      )
+              IF RUL_IDENT = '5'
+              THEN ST.TELA2 = ST.TELA2 + TELA;
+              ELSE ST.TELA1 = ST.TELA1 + TELA;
+            OTHERWISE;
+         END;
+      END;
+    /*----------------------------------------------------------------*/
+    /* AFTER RULE EXECUTION: SAVE PREVIOUS RULE NAME                  */
+    /*----------------------------------------------------------------*/
+
+      SP.PREV_RULE = SP.RULE_NAME;
+
+    /*----------------------------------------------------------------*/
+    /* AFTER RULE EXECUTION: HANDLE MESSAGES REQUESTED BY A RULE      */
+    /*----------------------------------------------------------------*/
+
+      IF SP.MSGNO  ^= ''
+      !  SP.MSGSEV ^= ''
+      !  SP.VARTXT ^= '' THEN DO;
+
+         IF SP.MSGNO = '' THEN SP.MSGNO = '004';
+
+         IF SP.MSGSEV = '' THEN DO;
+            FLGFLD (*,SP.SYSPREF!!SP.MSGNO,'D',      SP.VARTXT);
+         END;
+         ELSE DO;
+            FLGFLD (*,SP.SYSPREF!!SP.MSGNO,SP.MSGSEV,SP.VARTXT);
+         END;
+
+         PSK('MSG ISSUED: ',RE1MTXT);
+      END;
+
+    /*----------------------------------------------------------------*/
+    /* AFTER RULE EXECUTION: HANDLE RC ISSUED FROM A RULE             */
+    /*----------------------------------------------------------------*/
+ /*
+   PUT SKIP LIST('DRVM:');
+   PUT SKIP EDIT('  SP.IO_FUNC=<',SP.IO_FUNC,'>') (A);
+   PUT SKIP EDIT('  SP.MAXRC  =<',SP.MAXRC,'>') (A);
+   PUT SKIP EDIT('  SP.RC     =<',SP.RC,'>') (A);
+   PUT SKIP EDIT('  SP.INT_STRUCS=<',SP.INT_STRUCS,'>') (A);
+   CLOSE FILE(SYSPRINT);
+ */
+      IF SP.RC ^= 00 THEN DO;
+         SP.MAXRC  = MAX (SP.MAXRC, SP.RC);
+         SP.VARTXT = SP.RC;
+
+         PSK('SP.RC = ' , SP.RC , ' / ',
+             'SP.MAXRC = ' , SP.MAXRC)    ;
+      END;
+      /*--------------------------------------------------------------*/
+      /* REMEMBER ERROR COUNT                                         */
+      /*--------------------------------------------------------------*/
+      IF õõERRCNT > 0 THEN DO;
+         SELECT (SP.IO_FUNC);
+            WHEN ('I') SP.ERRCNT_I = MAX (SP.ERRCNT_I, õõERRCNT);
+            WHEN ('O') SP.ERRCNT_O = MAX (SP.ERRCNT_O, õõERRCNT);
+            OTHERWISE;
+         END;
+      END;
+
+    /*----------------------------------------------------------------*/
+    /* AFTER RULE EXECUTION: CLOSE PRINT VM FILE IF ITS OPENED AND    */
+    /*                       THE PROCESS IS STOPPED                   */
+    /*----------------------------------------------------------------*/
+
+      IF SP.EOP_FROM_RULE !
+        (SP.MAXRC >= STOP_RC &
+         ^SP.IGNORE_MAXRC)
+      THEN DO;
+             IF SP.PRTVM_OPEN
+             THEN DO;
+                    /*---------------------------------------------*/
+                    SP.RULE_NAME    = 'QCHPRTP '          ;
+                    SP.PARM1        = '   CLOSEVM        ';
+                    SP.PARM2        = '                  ';
+                    /*---------------------------------------------*/
+                   CALL INVOKE_PRTM;
+                  END;
+           END;
+
+
+      IF TRC_TIME = '1'B THEN DO;
+         /*-----------------------------------------------------------*/
+         /* AFTER RULE EXECUTION: CHECK IF A SPA VIOLATION OCCURED    */
+         /*-----------------------------------------------------------*/
+         IF SP.DUMPID ^= 'USER SPA'
+         !  SP.ANCHOR_MSSM ^= 'MSSM'
+         !  SP.ANCHOR_DONT ^= 'DONT'
+         !  SP.ANCHOR_SPAM ^= 'SPAM'
+         !  SP.ANCHOR_KEYS ^= 'KEYS'
+         !  SP.ANCHOR_PTRS ^= 'PTRS'
+         !  SP.ANCHOR_INDS ^= 'INDS'
+         !  SP.ANCHOR_CODE ^= 'CODE'
+         !  SP.END_OF_USER_SPA ^= 'END OF USER SPA' THEN DO;
+            UOPEN FILE(SYSPRINT);
+            UPUT SKIP EDIT ('DRVM ',SP.IO_FUNC,SP.BLE_FUNC,' FOR: ')
+                           (A);
+            UPUT      EDIT (##CSPSPA.##USERID) (A);
+            UPUT      EDIT (CHIS_RULE_A.IOPUCTY     ,
+                            CHIS_RULE_A.SCREEN      ,
+                            CHIS_RULE_A.SUBPROC     ,
+                            CHIS_RULE_A.STEP        ,
+                            CHIS_RULE_A.SDTMRULE ,
+                            CHIS_RULE_A.RULEIMPL ,
+                            CHIS_RULE_A.RULENAME ,
+                            CHIS_RULE_A.PARM1       ,
+                            CHIS_RULE_A.PARM2       )
+                           (7 (X(1),A), 2 (X(1),A(8)));
+            UPUT SKIP EDIT ('DRVM DETECTED SPA VIOLATION:',
+                            SP.DUMPID     ,
+                            SP.ANCHOR_MSSM,
+                            SP.ANCHOR_DONT,
+                            SP.ANCHOR_SPAM,
+                            SP.ANCHOR_KEYS,
+                            SP.ANCHOR_PTRS,
+                            SP.ANCHOR_INDS,
+                            SP.ANCHOR_CODE,
+                            SP.END_OF_USER_SPA) (A,X(1));
+            UCLOSE FILE(SYSPRINT);
+         END;
+
+         /*-----------------------------------------------------------*/
+         /* AFTER RULE EXECUTION: CHECK IF CONTROL LINKAGES DESTROYED */
+         /*-----------------------------------------------------------*/
+      END;
+   END;
+ /*-------------------------------------------------------------------*/
+ /* THE END ABOVE IS THE END OF THE DRIVER RULE EXECUTION LOOP        */
+ /*-------------------------------------------------------------------*/
+
+ /*-------------------------------------------------------------------*/
+ /* PROCEDURE: PUT_STATISTICS                                         */
+ /*-------------------------------------------------------------------*/
+
+ PUT_STATISTICS: PROCEDURE(PARM_PTR);
+ DCL PARM_PTR         PTR,
+     1 P_DATA         BASED(PARM_PTR) LIKE CHIS_RULE_A;
+   OPEN FILE(SYSPRINT);
+   PUT SKIP EDIT ('DRVM ',SP.IO_FUNC,SP.BLE_FUNC,' FOR: ') (A);
+   PUT      EDIT (##CSPSPA.##USERID) (A);
+   PUT      EDIT (P_DATA.IOPUCTY  ,
+                  P_DATA.SCREEN   ,
+                  P_DATA.SUBPROC  ,
+                  P_DATA.STEP     ,
+                  P_DATA.SDTMRULE ,
+                  P_DATA.RULEIMPL ,
+                  P_DATA.RULENAME ,
+                  P_DATA.PARM1    ,
+                  P_DATA.PARM2    )
+                  (7 (X(1),A), 2 (X(1),A(8)));
+   PUT SKIP EDIT (ST.RULES_EXECUTED,' RULES,',
+                   ST.DRVM_INVOCATIONS,' DRIVER INVOCATIONS.')
+                  (F(13),A, F(10),A);
+   PUT SKIP EDIT ('-','I','O','D','B')
+                  (COL(32),X(1), 5 (X(5),A));
+   PUT SKIP EDIT ('-',ST.FUNC_SWAP(0,*),
+                   'I',ST.FUNC_SWAP(1,*),
+                   'O',ST.FUNC_SWAP(2,*),
+                   'D',ST.FUNC_SWAP(3,*),
+                   'B',ST.FUNC_SWAP(4,*))
+                  (5 (COL(32), A, 5 F(6)));
+   PUT SKIP EDIT ('ELAPSED TIME IN PLI-RULES  :', ST.TELA1 / 1000,
+                   '                SQL-RULES  :', ST.TELA2 / 1000,
+                   '                INTERPRETER:', ST.TELA3 / 1000,
+                   '                PRINTER    :', ST.TELA4 / 1000,
+                   'SECONDS')
+                  (4 (COL(24),A,F(6)), X(1),A);
+   CLOSE FILE(SYSPRINT);
+ END PUT_STATISTICS;
+
+ /*-------------------------------------------------------------------*/
+ /* PROCEDURE: BR14  DUMMY DEBUG EXIT                                 */
+ /*-------------------------------------------------------------------*/
+
+ BR14: PROCEDURE (CALLID);
+   DCL CALLID CHAR(*);
+ END BR14;
+
+
+ /*-------------------------------------------------------------------*/
+ /*             INVOKE_PRTM                                           */
+ /*-------------------------------------------------------------------*/
+ INVOKE_PRTM: PROC;
+
+   DCL QCHSLMA ENTRY(FIXED BIN(15,0),
+                     CHAR(8),
+                     ENTRY VARIABLE)
+               RETURNS(FIXED BIN(31,0));
+   DCL EV            ENTRY VARIABLE;
+   IF QCHSLMA(20,'QCHPRTP',EV) ^= 0
+   THEN DO;
+          UPSK('ššššššššššššššššššššššššššššššššššššššš') ;
+          UPSK('VM PRINT FILE OPENED BUT MODULE ',
+               'QCHPRTP NOT FETCHED');
+          UPSK('ššššššššššššššššššššššššššššššššššššššš') ;
+        END;
+   ELSE DO;
+          CALL EV($$USPAPTR);
+          UPSK('CALLED QCHPRTM TO CLOSE VM PRINT');
+        END;
+
+ END INVOKE_PRTM;
+ #RULE_NAME:PROC(PARM_PTR) RETURNS(CHAR(8));
+ DCL PARM_PTR        PTR;
+ SELECT(PARM_PTR->CHIS_RULE.RULEIMPL);
+   WHEN('I')
+     RETURN('QCHINTM');
+   WHEN('L')
+     RETURN('QCHDDDM');
+   OTHER
+     RETURN(QCHCFLEV.LMOD_NAME);
+ END;
+ END #RULE_NAME;
+ END QCHDRVM ;

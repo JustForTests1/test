@@ -1,0 +1,569 @@
+ /*********************************************************************/
+ /* MODULE NAME  : QCHZU1M                                            */
+ /* APPLICATION  : CHIS                (C) COPYRIGHT IBM CORP. 1991   */
+ /*-------------------------------------------------------------------*/
+ /* FUNCTION     : Accent GUI BMP UserExit 1                          */
+ /*                Performs caching function for CF file data, which  */
+ /*                is needed from API47(Configurator linkage).        */
+ /* AUTHOR       : G. Haberler                                        */
+ /* DATE         : 13-09-2001                                         */
+ /* HISTORY      : Use the command QHIST                              */
+ /*                                                                   */
+ /* Parameters:                                                       */
+ /*   1. Ptr           - (I) SPA                                      */
+ /*   2. Ptr           - (I) APIIB                                    */
+ /*   4. Fixed Bin(31) - (O) timestamp start                          */
+ /*   5. Fixed Bin(31) - (O) timestamp end                            */
+ /*********************************************************************/
+
+ QCHZU1M: PROC (Mode,$$USPAPTR,APIIBP
+                 ) REORDER;
+   %INCLUDE QCH##PAD;
+   %INCLUDE QCH##EPS;
+   %INCLUDE QCHZTRC1;
+   %INCLUDE QCHZU1M;
+
+   %INCLUDE QCHDEPS;
+   %INCLUDE QCHSHYSP;
+   %INCLUDE QTTSHYS;
+   %INCLUDE QCHSHYSX;
+
+   #MODIDENT(QCHZU1M);
+   DFT  RANGE(*) STATIC;
+
+ /*------------------------------------------------------------------*/
+ /* Declarations                                                     */
+ /*------------------------------------------------------------------*/
+
+   DCL  SYSPRINT FILE PRINT EXT;
+
+   Dcl (ONSOURCE,
+        ONCOUNT,
+        DATAFIELD,
+        DATETIME,
+        FIXED,
+        UNSPEC,
+        BINARYVALUE,
+        STORAGE,
+        ONCHAR,
+        ONCODE,
+        ONLOC) Builtin;
+
+   DCL ($$USPAPTR,
+        APIIBP,
+        p_cfg1,
+        p_icfg1)     Ptr;
+
+   DCL Mode        char(8)  ;
+   DCL TraceLvl    Fixed Bin(31);
+   DCL chrtrlvl    char(2)  var;
+   DCL chrtrlvl1   char(2)  init('00');
+   DCL pictrlv1    pic'99' based(addr(chrtrlvl1));
+
+   DCL  1 QCHUSPA based($$USPAPTR),      %INCLUDE QCHSPAS; ;
+ /*Dcl  1 SPP     based(QCHUSPA.PTRP1),  * User ptr areas            *
+          %INCLUDE QCHPTRS;; */
+
+   Dcl  1 APIIB   based(APIIBP),        /* API Input block           */
+          %INCLUDE QCHAPIIB;;
+
+   Dcl  1 FB      based(APIIB.APIAP),   /* Parser/flattener fdbk blk */
+          %INCLUDE QCHZ007;;
+
+   Dcl  1 CFlink_Block based(FB.p_CFlink),
+          %INCLUDE QCHPSTK;;
+
+
+   Dcl  1 BMI based(FB.p_BMI1),  /* BMP Instance Table Struc    */
+          %INCLUDE QCHBMIS;;
+
+   Dcl  1 BMP based(FB.p_BMP1),  /* BMP Process Det Table Struc */
+          %INCLUDE QCHBMPS;;
+
+   MACDCLS;
+   %INCLUDE QCHDRVS;
+   %INCLUDE QCHSHYSS;
+   %INCLUDE QCHUNIQ;  /* BMP Instance Key Generation Logic   */
+
+   dcl  retbit                 bit(1) init('0'B);
+   dcl  PRD_flg                bit(1) init('0'B);
+   dcl  TRUE                   bit(1) init('1'B);
+   dcl  FALSE                  bit(1) init('0'B);
+
+   DCL  1 CFG_data   BASED                  ,/* LIBARY MEMBER LIST   */
+          3 countr   BIN FIXED(15)           ,
+          3 rows(Cr  REFER(countr)),
+            5 I_CTY                CHAR(3),
+            5 MTYP                 CHAR(4),
+            5 MMDL                 CHAR(3),
+            5 MFEA                 CHAR(6),
+            5 TBL                  CHAR(3),
+            5 ID_TBLREC            DEC fixed(15,0),
+            5 TY_USAGE             CHAR(1),
+            5 Q_FACTOR             DEC fixed(5,0),
+            5 NM_NCP               DEC fixed(2,0);
+
+
+   DCL  uni          BIN FIXED(15) INIT(0)  ;
+   DCL  cr           BIN FIXED(31) INIT(0)  ;/* MEMBERCOUNTER OF LIB */
+   DCL  1 CFG        BASED(p_CFG1),
+        %INCLUDE QCHCFGS;;
+   DCL  1 ICFG        BASED(p_ICFG1)
+        %INCLUDE QCHCFGI;;
+   dcl  1 CTY,
+        %INCLUDE QCHCTYS;;
+   DCL 1 COC,
+        %INCLUDE QCHCOCS;; /* for unique ir */
+
+   EXEC SQL INCLUDE SQLCA;
+   %        INCLUDE QCHCFG1S;
+   %        INCLUDE QCHCTY1S;
+   %        INCLUDE QCHBMI1S;
+   %        INCLUDE QCHBMP1S;
+   %        INCLUDE QCHCOC1S;
+
+ /*------------------------------------------------------------------*/
+ /* LOGIC STARTS                                                     */
+ /*------------------------------------------------------------------*/
+
+   TraceLvl = FB.TraceLvl;
+
+   call read_cty;
+
+   if sqlca.sqlcode = 0 then do;
+
+     chrtrlvl = TRIM(substr(cty.parmfl1,1,2));
+
+     if verify(chrtrlvl,'0123456789') = 0 then do;
+       if LENGTH(chrtrlvl) = 1  then
+          chrtrlvl1 = '0'!! chrtrlvl;
+       else
+          chrtrlvl1 = chrtrlvl;
+
+       if TraceLvl < pictrlv1 then
+          TraceLvl = pictrlv1;
+       putskipa(7,('QCHZU1 tracelevel : '!!TraceLvl));
+     end;
+     else
+       putskipa(5,('QCHZU1 tracelevel not numeric: '!!chrtrlvl1));
+   end;
+
+   on error snap;
+   %deact put;
+   Select(Mode);
+        When('INIT') Do;
+           Call COC_READ();
+           BMI.ID = Unique_IR();
+           BMP.ID_BMI = BMI.ID;
+           /* set elapsed timestamp start */
+           alloc cfg;
+           alloc icfg;
+           call cache_CFG_main;
+           free cfg;
+           free icfg;
+           putskipa(7,('end of userexit: p_cachestart:'
+           !!int2hex(unspec(cflink_block.p_cachestart))));
+           /* set elapsed timestamp end   */
+        End;
+        When('INSINST')Do;
+           Call Ins_Inst();
+           /*-------------------------------------------------------*/
+           /*  If Unique ID already exists, try next Unique ID      */
+           /*  using Increase_UIR which increments Unique ID by 100 */
+           /*-------------------------------------------------------*/
+           uni = 0;
+           Do While ( SQLCA.SQLCODE = -803  & uni < 50);
+              BMI.ID = Increase_UIR(BMI.ID);
+              BMP.ID_BMI = BMI.ID;
+              uni = uni + 1;
+              Call Ins_Inst();
+           End;
+           return;
+        End;
+        When('INSPRCD') Do;
+             Call Ins_Prcd();
+           return;
+        End;
+        When('UPDINST ') Do;
+           Call Upd_Inst();
+           return;
+        End;
+        When('UPDPRCD') Do;
+             Call Upd_Prcd();
+           return;
+        End;
+        Otherwise Do;
+           putskipa(7,('Invalid Mode.Error!'));
+           call Pliretc(8);
+        End;
+   End;
+
+ /*------------------------------------------------------------------*/
+ /* Starting routine for caching CFG data for CF file users          */
+ /*                                                                  */
+ /*------------------------------------------------------------------*/
+ cache_CFG_main: proc;
+ /*------------------------------------------------------------------*/
+
+   alloc CFlink_block;
+
+   CFlink_Block.iagrcid = (6)' ';
+   if count_CFG_lines() then do;
+     alloc CFG_data set(CFlink_block.p_cachestart);
+     call cache_data;
+   end;
+   else
+     call sql_failure('No CFG data cached.'!!cr);
+
+ end cache_CFG_main;
+
+ /*------------------------------------------------------------------*/
+ /* sql faliure information on sysprint                              */
+ /*------------------------------------------------------------------*/
+ sql_failure: proc(text);
+ /*------------------------------------------------------------------*/
+   dcl text char(100) var;
+   CFlink_block.p_cachestart = NULL;
+   putskipa(0,('-------------------------------------'));
+   putskipa(0,(text));
+   putskipa(0,('Sqlcode:' !! sqlcode));
+   putskipa(0,('-------------------------------------'));
+ end sql_failure;
+
+ /*------------------------------------------------------------------*/
+ /* This functions are handling the table access for CFG table       */
+ /*------------------------------------------------------------------*/
+ open_cfg_cursor: proc returns(bit);
+ /*------------------------------------------------------------------*/
+
+   EXEC SQL DECLARE CURCFG CURSOR FOR
+
+   SELECT  %INCLUDE QCHCFGD1;
+   FROM    configv1
+   where   ty_usage = 'C'
+   ORDER BY TBL,I_CTY,MTYP,MMDL,MFEA
+
+   FOR FETCH ONLY ;
+   EXEC SQL OPEN CURCFG;
+   putskipa(7,('**++**end open cursor   '));
+   putskipa(7,(sqlcode));
+
+   if sqlcode = 0 then
+     return('1'B);
+   else
+     return('0'B);
+ end open_cfg_cursor;
+
+ /*------------------------------------------------------------------*/
+ /* This function is retrieving the no. of rows for the CFG table    */
+ /*------------------------------------------------------------------*/
+ cache_data: proc;
+ /*------------------------------------------------------------------*/
+   dcl cntr bin fixed(31) init(0) auto;
+
+   putskipa(7,('**++**start cache data  '));
+   if open_CFG_cursor() then do;
+
+     EXEC SQL FETCH CURCFG
+     INTO %INCLUDE QCHCFGF1;;
+
+     do while (sqlcode = 0);
+
+       cntr = cntr + 1;
+
+       if cntr > 50000 then do;
+         putskipa(0,('**++ WARNING WARNING WARNING ++**'));
+         putskipa(0,(' '));
+         putskipa(0,('**++ CONFIG counter for eConfig increasing'));
+         putskipa(0,('**++ over critical limit of 50.000        '));
+         putskipa(0,(' '));
+         putskipa(0,('**++ WARNING WARNING WARNING ++**'));
+       end;
+
+       CFlink_block.p_cachestart->CFG_data.rows(cntr) = CFG, by name;
+   putskipa(7,('CFG_data:'!!cntr!!
+   CFlink_block.p_cachestart->CFG_data.rows(cntr).tbl  !! ' ' !!
+   CFlink_block.p_cachestart->CFG_data.rows(cntr).mtyp !! ' ' !!
+   CFlink_block.p_cachestart->CFG_data.rows(cntr).mmdl !! ' ' !!
+   CFlink_block.p_cachestart->CFG_data.rows(cntr).mfea !! ' ' !!
+   CFlink_block.p_cachestart->CFG_data.rows(cntr).ty_usage!! ' ' !!
+   CFlink_block.p_cachestart->CFG_data.rows(cntr).id_tblrec
+   ));
+
+       cre_sel(CFlink_block,cntr,CFG);  /* set start index per tbl   */
+
+       EXEC SQL FETCH CURCFG
+       INTO %INCLUDE QCHCFGF1;;
+
+     end;
+
+
+     if cntr = 0 then do;
+       call sql_failure('no records found fetchcounter = 0');
+       call sql_failure('count(*) counter              = '!!
+                         CFlink_block.p_cachestart->CFG_data.countr);
+     end;
+
+     EXEC SQL CLOSE CURCFG;
+     sqlcode = 0;
+
+   end;
+   else
+     call sql_failure('No CFG data cached Open failure.'!!cr);
+
+ end cache_data;
+
+ /*------------------------------------------------------------------*/
+ /* This function is retrieving the no. of rows for the CFG table    */
+ /*------------------------------------------------------------------*/
+ count_CFG_lines: proc returns(bit);
+ /*------------------------------------------------------------------*/
+
+   EXEC SQL
+   SELECT  COUNT(*)
+   INTO    :cr
+   FROM    configV1
+   where   ty_usage = 'C';
+
+   if sqlcode = 0
+    & cr ^= 0 then
+      retbit = TRUE;
+   else
+      retbit = FALSE;
+
+   putskipa(7,('## records in CF file:'!!cr));
+   return(retbit);
+ end count_CFG_lines;
+ /*------------------------------------------------------------------*/
+ /* Int2Hex:                                                         */
+ /*                                                                  */
+ /* Converts the specified integer to a hex string.                  */
+ /*                                                                  */
+ /* Parameters:                                                      */
+ /*   1. Fixed bin(31)   - Integer                                   */
+ /*                                                                  */
+ /* Returns:                                                         */
+ /*   1. Char(8) var     - Hex output string (no leading zeros)      */
+ /*------------------------------------------------------------------*/
+
+ Int2Hex: Proc(Int) returns(char(8) var);
+   Dcl  Int             fixed bin(31);
+
+   Dcl  i               fixed bin(31);
+   Dcl  n1              fixed bin(31);
+   Dcl  n2              fixed bin(31);
+   Dcl  chars(4)        char based(addr(Int));
+   Dcl  hex             char(8) var;
+   Dcl  hexchars(16)    char init('0','1','2','3','4','5','6','7',
+                                  '8','9','A','B','C','D','E','F');
+   hex = '';
+   do i = 1 to 4;
+     n1 = fixed(UNSPEC(chars(i)) & unspec('f0'x)) / 16;
+     n2 = UNSPEC(chars(i)) & unspec('0f'x);
+     hex = hex !! hexchars(n1+1) !! hexchars(n2+1);
+   end;
+
+   do i = 1 to 3;
+     if substr(hex,1,2) = '00' then
+       hex = substr(hex,3);
+   end;
+
+   return (hex);
+ end Int2Hex;
+ /*-------------------------------------------------------------------*/
+ READ_Cty: PROC;
+ /*-------------------------------------------------------------------*/
+
+   EXEC SQL
+   SELECT  %INCLUDE QCHCTYD1 ;
+
+   INTO    %INCLUDE QCHCTYF1 ;
+
+   FROM            QCHVCTY1
+
+   WHERE   IOPUCTY  = '999'
+   AND     TABLENA  = 'TRC'
+   AND     GENKEY1  = 'QCHZU1M'
+   AND     GENKEY2  = 'TRACELVL'
+   ;
+
+ END READ_Cty;
+
+ /*-------------------------------------------------------------------*/
+ Ins_Inst : Proc;    /* BMP Instance Table insert */
+ /*-------------------------------------------------------------------*/
+
+    EXEC SQL
+    INSERT
+    INTO           BMPV1
+            ( %INCLUDE QCHBMII1; )
+    VALUES
+            ( %INCLUDE QCHBMII2; )
+    ;
+
+    IF SQLCA.SQLCODE ^= 0 & SQLCA.SQLCODE ^= -803 THEN DO;
+      putskipa(0,('BMI.ID         :' !! BMI.ID));
+      putskipa(0,('BMI.NIK        :' !! BMI.NIK));
+      putskipa(0,('BMI.D_START    :' !! BMI.D_START));
+      putskipa(0,('BMI.T_START    :' !! BMI.T_START));
+      putskipa(0,('BMI.D_STOP     :' !! BMI.D_STOP));
+      putskipa(0,('BMI.T_STOP     :' !! BMI.T_STOP));
+      putskipa(0,('BMI.MS_USEREXIT:' !! BMI.MS_USEREXIT));
+      CALL sql_err('BMP Instance Table Insert');
+    END;
+
+    ELSE
+      putskipa(7,('Instance record insert successful'));
+
+ END Ins_Inst;
+
+ /*-------------------------------------------------------------------*/
+ Upd_Inst : Proc;    /* BMP Instance Table Update */
+ /*-------------------------------------------------------------------*/
+
+    EXEC SQL
+    UPDATE         BMPV1
+    SET  D_STOP = :BMI.D_STOP,
+         T_STOP = :BMI.T_STOP
+
+    WHERE ID = :BMI.ID
+    ;
+    IF SQLCA.SQLCODE ^= 0 THEN DO;
+      putskipa(0,('BMI.ID         :' !! BMI.ID));
+      putskipa(0,('BMI.NIK        :' !! BMI.NIK));
+      putskipa(0,('BMI.D_START    :' !! BMI.D_START));
+      putskipa(0,('BMI.T_START    :' !! BMI.T_START));
+      putskipa(0,('BMI.D_STOP     :' !! BMI.D_STOP));
+      putskipa(0,('BMI.T_STOP     :' !! BMI.T_STOP));
+      putskipa(0,('BMI.MS_USEREXIT:' !! BMI.MS_USEREXIT));
+      CALL sql_err('BMP Instance Table Update');
+    END;
+
+    ELSE
+      putskipa(7,('Instance record update successful'));
+
+ END Upd_Inst;
+
+ /*-------------------------------------------------------------------*/
+ Ins_PrcD : Proc;  /* BMP Process Details Table insert */
+ /*-------------------------------------------------------------------*/
+
+    EXEC SQL
+    INSERT
+    INTO           BMP_PROCV1
+            ( %INCLUDE QCHBMPI1; )
+    VALUES
+            ( %INCLUDE QCHBMPI2; )
+    ;
+    IF SQLCA.SQLCODE ^= 0 ! TraceLvl >= 9 THEN DO;
+      putskipa(0,('BMP.ID_BMI      :' !! BMP.ID_BMI));
+      putskipa(0,('BMP.D_START     :' !! BMP.D_START));
+      putskipa(0,('BMP.T_START     :' !! BMP.T_START));
+      putskipa(0,('BMP.D_STOP      :' !! BMP.D_STOP));
+      putskipa(0,('BMP.T_STOP      :' !! BMP.T_STOP));
+      putskipa(0,('BMP.I_CTY       :' !! BMP.I_CTY));
+      putskipa(0,('BMP.I_CID       :' !! BMP.I_CID));
+      putskipa(0,('BMP.MAINPROCESS :' !! BMP.MAINPROCESS));
+      putskipa(0,('BMP.SUBPROCESS  :' !! BMP.SUBPROCESS));
+      putskipa(0,('BMP.I_UID       :' !! BMP.I_UID     ));
+      putskipa(0,('BMP.MS_REQUEST  :' !! BMP.MS_REQUEST));
+      putskipa(0,('BMP.MS_PARSER   :' !! BMP.MS_PARSER ));
+      putskipa(0,('BMP.MS_ROUTER   :' !! BMP.MS_ROUTER ));
+      putskipa(0,('BMP.MS_MQPUT    :' !! BMP.MS_MQPUT  ));
+      putskipa(0,('BMP.MS_QCHMSSM  :' !! BMP.MS_QCHMSSM));
+      putskipa(0,('BMP.MS_QCHSPOM  :' !! BMP.MS_QCHSPOM));
+      putskipa(0,('BMP.MS_QCHZINM  :' !! BMP.MS_QCHZINM));
+      putskipa(0,('BMP.MS_EXEC     :' !! BMP.MS_EXEC   ));
+      putskipa(0,('BMP.MS_FLATTENER:' !! BMP.MS_FLATTENER));
+      putskipa(0,('BMP.RETURN_CODE :' !! BMP.RETURN_CODE));
+      putskipa(0,('BMP.REASON_CODE :' !! BMP.REASON_CODE));
+      putskipa(0,('BMP.SIZE_MSG_IN :' !! BMP.SIZE_MSG_IN));
+      putskipa(0,('BMP.SIZE_MSG_RET:' !! BMP.SIZE_MSG_RET));
+      putskipa(0,('BMP.TRACE_LEVEL :' !! BMP.TRACE_LEVEL));
+      CALL sql_err('BMP Process Details Table Insert');
+    END;
+
+    ELSE
+      putskipa(7,('Process Detail record insert successful'));
+
+ End Ins_PrcD;
+
+ /*-------------------------------------------------------------------*/
+ Upd_PrcD : Proc;  /* BMP Process Details Table Update */
+ /*-------------------------------------------------------------------*/
+
+    EXEC SQL
+    UPDATE    BMP_PROCV1
+    SET   D_STOP  = :BMP.D_STOP,
+          T_STOP  = :BMP.T_STOP,
+          I_CID   = :BMP.I_CID
+    WHERE ID_BMI  = :BMP.ID_BMI
+    AND   D_START = :BMP.D_START
+    AND   T_START = :BMP.T_START
+    AND   I_UID   = :BMP.I_UID
+    ;
+    IF SQLCA.SQLCODE ^= 0                           THEN DO;
+      putskipa(0,('BMP.ID_BMI      :' !! BMP.ID_BMI));
+      putskipa(0,('BMP.D_START     :' !! BMP.D_START));
+      putskipa(0,('BMP.T_START     :' !! BMP.T_START));
+      putskipa(0,('BMP.D_STOP      :' !! BMP.D_STOP));
+      putskipa(0,('BMP.T_STOP      :' !! BMP.T_STOP));
+      putskipa(0,('BMP.I_CTY       :' !! BMP.I_CTY));
+      putskipa(0,('BMP.I_CID       :' !! BMP.I_CID));
+      putskipa(0,('BMP.MAINPROCESS :' !! BMP.MAINPROCESS));
+      putskipa(0,('BMP.SUBPROCESS  :' !! BMP.SUBPROCESS));
+      putskipa(0,('BMP.I_UID       :' !! BMP.I_UID     ));
+      putskipa(0,('BMP.MS_REQUEST  :' !! BMP.MS_REQUEST));
+      putskipa(0,('BMP.MS_PARSER   :' !! BMP.MS_PARSER ));
+      putskipa(0,('BMP.MS_ROUTER   :' !! BMP.MS_ROUTER ));
+      putskipa(0,('BMP.MS_MQPUT    :' !! BMP.MS_MQPUT  ));
+      putskipa(0,('BMP.MS_QCHMSSM  :' !! BMP.MS_QCHMSSM));
+      putskipa(0,('BMP.MS_QCHSPOM  :' !! BMP.MS_QCHSPOM));
+      putskipa(0,('BMP.MS_QCHZINM  :' !! BMP.MS_QCHZINM));
+      putskipa(0,('BMP.MS_EXEC     :' !! BMP.MS_EXEC   ));
+      putskipa(0,('BMP.MS_FLATTENER:' !! BMP.MS_FLATTENER));
+      putskipa(0,('BMP.RETURN_CODE :' !! BMP.RETURN_CODE));
+      putskipa(0,('BMP.REASON_CODE :' !! BMP.REASON_CODE));
+      putskipa(0,('BMP.SIZE_MSG_IN :' !! BMP.SIZE_MSG_IN));
+      putskipa(0,('BMP.SIZE_MSG_RET:' !! BMP.SIZE_MSG_RET));
+      putskipa(0,('BMP.TRACE_LEVEL :' !! BMP.TRACE_LEVEL));
+      CALL sql_err('BMP Process Details Table Update');
+    END;
+
+    ELSE
+      putskipa(7,('Process Detail record update successful'));
+
+ End Upd_PrcD;
+
+ /*-----------------------------------------------*/
+ /* SELECT INSTANCEID  (REGION ID) FOR UNIQUE_IR  */
+ /*-----------------------------------------------*/
+
+ COC_READ: PROCEDURE;
+
+    EXEC  SQL
+    SELECT INSTANCEID
+    INTO  :COC.INSTANCEID
+    FROM  QCHVCOC1
+    ;
+    putskipa(7,('INSTANCEID = ' !! COC.INSTANCEID));
+
+    IF SQLCA.SQLCODE ^= 0 THEN
+      CALL sql_err('READ COC-TABLE UNSUCCESFUL');
+
+ END COC_READ;
+
+ /*------------------------------------------------------------------*/
+ /* sql error information on sysprint specific to history tables     */
+ /*------------------------------------------------------------------*/
+ sql_err: proc(text);
+ /*------------------------------------------------------------------*/
+   dcl text char(100) var;
+   putskipa(0,('-------------------------------------'));
+   putskipa(0,(text));
+   putskipa(0,('Sqlcode:' !! sqlcode));
+   putskipa(0,('-------------------------------------'));
+ end sql_err;
+
+   %act put;
+ END QCHZU1M;
